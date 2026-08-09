@@ -26,6 +26,7 @@ import com.quran.labs.androidquran.data.Constants
 import com.quran.labs.androidquran.data.Constants.JUZ2_COUNT
 import com.quran.labs.androidquran.data.Constants.SURAS_COUNT
 import com.quran.labs.androidquran.data.QuranDisplayData
+import com.quran.labs.androidquran.data.RevelationOrder
 import com.quran.labs.androidquran.ui.QuranActivity
 import com.quran.labs.androidquran.ui.helpers.QuranListAdapter
 import com.quran.labs.androidquran.ui.helpers.QuranListAdapter.QuranTouchListener
@@ -121,9 +122,15 @@ class SuraListFragment : Fragment(), QuranTouchListener {
         val recentPage = activity.latestPage()
         if (recentPage != Constants.NO_PAGE) {
           val sura = quranDisplayData.safelyGetSuraOnPage(recentPage)
-          val juz = quranInfo.getJuzFromPage(recentPage)
-          val position = sura + juz - 1 + readingBookmarkOffset()
-          recyclerView.scrollToPosition(position)
+          val position = if (isRevelationOrder) {
+            RevelationOrder.positionOf(sura)
+          } else {
+            val juz = quranInfo.getJuzFromPage(recentPage)
+            sura + juz - 1 + readingBookmarkOffset()
+          }
+          if (position >= 0) {
+            recyclerView.scrollToPosition(position)
+          }
         }
       }
 
@@ -138,6 +145,10 @@ class SuraListFragment : Fragment(), QuranTouchListener {
   }
 
   private fun getSuraList(): Array<QuranRow> {
+    if (isRevelationOrder) {
+      return getRevelationOrderList()
+    }
+
     var next: Int
     var pos = 0
     var sura = 1
@@ -181,6 +192,26 @@ class SuraListFragment : Fragment(), QuranTouchListener {
     return elements.filterNotNull().toTypedArray()
   }
 
+  private fun getRevelationOrderList(): Array<QuranRow> {
+    val activity: Activity = requireActivity()
+    val wantPrefix = activity.resources.getBoolean(R.bool.show_surat_prefix)
+    val wantTranslation = quranSettings.isShowSuraTranslatedName
+
+    return RevelationOrder.suras.mapIndexed { index, sura ->
+      val metadata = activity.getString(
+        R.string.revelation_order_metadata,
+        QuranUtils.getLocalizedNumber(index + 1),
+        quranDisplayData.getSuraListMetaString(activity, sura)
+      )
+      QuranRow.Builder()
+        .withText(quranDisplayData.getSuraName(activity, sura, wantPrefix, wantTranslation))
+        .withMetadata(metadata)
+        .withSura(sura)
+        .withPage(quranInfo.getPageNumberForSura(sura))
+        .build()
+    }.toTypedArray()
+  }
+
   private fun showHideSuraTranslatedName() {
     updateSuraList()
   }
@@ -221,6 +252,16 @@ class SuraListFragment : Fragment(), QuranTouchListener {
   }
 
   companion object {
+    private const val ARG_REVELATION_ORDER = "revelation_order"
     fun newInstance(): SuraListFragment = SuraListFragment()
+
+    fun newRevelationOrderInstance(): SuraListFragment {
+      return SuraListFragment().apply {
+        arguments = Bundle().apply { putBoolean(ARG_REVELATION_ORDER, true) }
+      }
+    }
   }
+
+  private val isRevelationOrder: Boolean
+    get() = arguments?.getBoolean(ARG_REVELATION_ORDER, false) == true
 }

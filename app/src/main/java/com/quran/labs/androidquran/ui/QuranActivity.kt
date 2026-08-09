@@ -75,10 +75,11 @@ import java.util.concurrent.TimeUnit.MILLISECONDS
 import kotlin.math.abs
 
 /**
- * The home screen activity for the app. Displays a toolbar and 3 fragments:
+ * The home screen activity for the app. Displays a toolbar and 4 fragments:
  *
  *  * [SuraListFragment]
  *  * [JuzListFragment]
+ *  * a surah list in traditional revelation order
  *  * [BookmarksFragment]
  *
  * When this activity is created, it may run a background check to see if updated translations
@@ -177,7 +178,7 @@ class QuranActivity : AppCompatActivity(),
     ab?.setTitle(R.string.app_name)
 
     val pager = findViewById<ViewPager>(R.id.index_pager)
-    pager.offscreenPageLimit = 3
+    pager.offscreenPageLimit = 4
     val pagerAdapter = PagerAdapter(supportFragmentManager)
     pager.adapter = pagerAdapter
     val indicator = findViewById<SlidingTabLayout>(R.id.indicator)
@@ -531,26 +532,28 @@ class QuranActivity : AppCompatActivity(),
   private inner class PagerAdapter(fm: FragmentManager) :
       FragmentPagerAdapter(fm) {
 
-    override fun getCount() = 3
+    override fun getCount() = 4
 
     override fun getItem(position: Int): Fragment {
       var pos = position
       if (isRtl) {
-        pos = abs(position - 2)
+        pos = abs(position - 3)
       }
       return when (pos) {
         SURA_LIST -> SuraListFragment.newInstance()
         JUZ2_LIST -> JuzListFragment.newInstance()
+        REVELATION_LIST -> SuraListFragment.newRevelationOrderInstance()
         BOOKMARKS_LIST -> BookmarksFragment.newInstance()
         else -> BookmarksFragment.newInstance()
       }
     }
 
     override fun getItemId(position: Int): Long {
-      val pos = if (isRtl) abs(position - 2) else position
+      val pos = if (isRtl) abs(position - 3) else position
       return when (pos) {
         SURA_LIST -> SURA_LIST.toLong()
         JUZ2_LIST -> JUZ2_LIST.toLong()
+        REVELATION_LIST -> REVELATION_LIST.toLong()
         BOOKMARKS_LIST -> BOOKMARKS_LIST.toLong()
         else -> BOOKMARKS_LIST.toLong()
       }
@@ -566,10 +569,12 @@ class QuranActivity : AppCompatActivity(),
     private val TITLES = intArrayOf(
         R.string.quran_sura,
         R.string.quran_juz2,
+        R.string.quran_revelation_order,
         R.string.menu_bookmarks
     )
     private val ARABIC_TITLES = intArrayOf(
         R.string.menu_bookmarks,
+        R.string.quran_revelation_order,
         R.string.quran_juz2,
         R.string.quran_sura
     )
@@ -577,7 +582,8 @@ class QuranActivity : AppCompatActivity(),
     private const val SI_SHOWED_UPGRADE_DIALOG = "si_showed_dialog"
     private const val SURA_LIST = 0
     private const val JUZ2_LIST = 1
-    private const val BOOKMARKS_LIST = 2
+    private const val REVELATION_LIST = 2
+    private const val BOOKMARKS_LIST = 3
     private var updatedTranslations = false
   }
 }
