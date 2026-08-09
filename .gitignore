@@ -10,6 +10,7 @@ oauth.properties
 target
 gen-external-apklibs
 *.iml
+/.tooling/
 .idea
 classes
 ApiKeys.java
