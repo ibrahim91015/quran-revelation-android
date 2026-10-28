@@ -20,7 +20,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 
-@Config(application = TestApplication::class, sdk = [33])
+@Config(application = TestApplication::class, sdk = [33, 36])
 @RunWith(RobolectricTestRunner::class)
 class QuranActivityTest {
   @get:Rule
@@ -74,5 +74,22 @@ class QuranActivityTest {
       Matchers.allOf(ViewMatchers.withText("96"), ViewMatchers.isCompletelyDisplayed())
     )
       .check(ViewAssertions.matches(ViewMatchers.isCompletelyDisplayed()))
+  }
+
+  @Test
+  fun revelationSelectionNavigatesToActualSurahWithPlaybackOrder() {
+    Intents.intending(IntentMatchers.hasComponent(PagerActivity::class.java.name))
+      .respondWith(android.app.Instrumentation.ActivityResult(android.app.Activity.RESULT_OK, null))
+    rule.scenario.onActivity { activity ->
+      val row = com.quran.labs.androidquran.ui.helpers.QuranRow.Builder()
+        .withSura(96).withPage(597).build()
+      activity.jumpTo(row, revelationOrder = true)
+    }
+    Intents.intended(Matchers.allOf(
+      IntentMatchers.hasComponent(PagerActivity::class.java.name),
+      IntentMatchers.hasExtra(PagerActivity.EXTRA_REVELATION_ORDER, true),
+      IntentMatchers.hasExtra(PagerActivity.EXTRA_HIGHLIGHT_SURA, 96),
+      IntentMatchers.hasExtra(PagerActivity.EXTRA_HIGHLIGHT_AYAH, 1)
+    ))
   }
 }

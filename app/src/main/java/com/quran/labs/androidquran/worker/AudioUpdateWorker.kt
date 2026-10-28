@@ -1,7 +1,9 @@
 package com.quran.labs.androidquran.worker
 
+import android.Manifest
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -114,7 +116,9 @@ class AudioUpdateWorker(
       context.applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
           as NotificationManager
 
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || notificationManager.areNotificationsEnabled()) {
+    if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED) && notificationManager.areNotificationsEnabled()) {
       NotificationChannelUtil.setupNotificationChannel(
         notificationManager,
         Constants.DOWNLOAD_CHANNEL, context.getString(R.string.notification_channel_download)

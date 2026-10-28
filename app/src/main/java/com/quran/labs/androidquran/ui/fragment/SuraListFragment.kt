@@ -243,7 +243,7 @@ class SuraListFragment : Fragment(), QuranTouchListener {
   override fun onClick(row: QuranRow, position: Int) {
     val activity = activity as? QuranActivity
     if (activity != null && row.page != 0) {
-      activity.jumpTo(row)
+      activity.jumpTo(row, isRevelationOrder)
     }
   }
 

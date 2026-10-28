@@ -33,9 +33,11 @@ class QuranNavigator @Inject constructor(
     location: JumpLocation,
     bookmarkType: ReadingBookmarkType? = null,
     showTranslation: Boolean? = null,
-    intentFlags: Int = 0
+    intentFlags: Int = 0,
+    revelationOrder: Boolean? = null
   ) {
     val intent = intentFor(location, showTranslation).addFlags(intentFlags)
+    revelationOrder?.let { intent.putExtra(PagerActivity.EXTRA_REVELATION_ORDER, it) }
     suggestedReadingBookmark.onJump(location, bookmarkType)
     if (context is PagerActivity) {
       context.onNewIntent(intent)

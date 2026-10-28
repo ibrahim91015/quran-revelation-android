@@ -7,7 +7,6 @@ import com.quran.data.source.PageSizeCalculator
 import com.quran.labs.androidquran.pages.common.madani.size.DefaultPageSizeCalculator
 import com.quran.labs.androidquran.pages.data.madani.MadaniDataSource
 import com.quran.labs.androidquran.pages.madani.R
-import com.quran.labs.androidquran.common.audio.R as audioR
 
 class MadaniPageProvider : PageProvider {
 
@@ -44,34 +43,7 @@ class MadaniPageProvider : PageProvider {
 
   override fun getDefaultQariId(): Int = 0
 
-  override fun getQaris(): List<Qari> {
-    return listOf(
-      Qari(
-        0,
-        audioR.string.qari_minshawi_murattal_gapless,
-        url = "https://download.quranicaudio.com/quran/muhammad_siddeeq_al-minshaawee/",
-        path = "minshawi_murattal",
-        hasGaplessAlternative = false,
-        db = "minshawi_murattal"
-      ),
-      Qari(
-        1,
-        audioR.string.qari_husary_gapless,
-        url = "https://download.quranicaudio.com/quran/mahmood_khaleel_al-husaree/",
-        path = "husary",
-        hasGaplessAlternative = false,
-        db = "husary"
-      ),
-      Qari(
-        2,
-        audioR.string.qari_basfar,
-        url = "https://mirrors.quranicaudio.com/everyayah/Abdullah_Basfar_192kbps/",
-        path = "2",
-        hasGaplessAlternative = false,
-        db = null
-      )
-    )
-  }
+  override fun getQaris(): List<Qari> = MadaniReciters.all
 
   companion object {
     private const val baseUrl = "https://android.quran.com/data"

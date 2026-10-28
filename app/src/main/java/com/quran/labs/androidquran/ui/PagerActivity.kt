@@ -291,9 +291,13 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
     }
   }
 
+  private var revelationOrder = false
+
   public override fun onCreate(savedInstanceState: Bundle?) {
     WindowCompat.setDecorFitsSystemWindows(window, false)
     super.onCreate(savedInstanceState)
+    revelationOrder = savedInstanceState?.getBoolean(EXTRA_REVELATION_ORDER)
+      ?: intent.getBooleanExtra(EXTRA_REVELATION_ORDER, false)
 
     // field injection
     pagerActivityComponent.inject(this)
@@ -1046,6 +1050,9 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
 
   public override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
+    if (intent.hasExtra(EXTRA_REVELATION_ORDER)) {
+      revelationOrder = intent.getBooleanExtra(EXTRA_REVELATION_ORDER, false)
+    }
 
     recentPagePresenter.onJump()
     val extras = intent.extras
@@ -1133,6 +1140,7 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
   }
 
   public override fun onSaveInstanceState(state: Bundle) {
+    state.putBoolean(EXTRA_REVELATION_ORDER, revelationOrder)
     val lastPage = quranInfo.getPageFromPosition(viewPager.currentItem, isDualPageVisible)
     state.putInt(LAST_READ_PAGE, lastPage)
     state.putBoolean(LAST_READING_MODE_IS_TRANSLATION, showingTranslation)
@@ -1517,6 +1525,15 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
   override fun onPlayPressed() {
     val position = viewPager.currentItem
     val page = quranInfo.getPageFromPosition(position, isDualPageVisible)
+    // Several short surahs share one page. Start the selected surah, rather than
+    // the preceding canonical surah printed at the top of that page.
+    val selected = selectionStart
+    if (revelationOrder && selected != null &&
+      quranInfo.getPositionFromPage(quranInfo.getPageFromSuraAyah(selected.sura, selected.ayah),
+        isDualPageVisible) == position) {
+      playFromAyah(selected.sura, selected.ayah)
+      return
+    }
 
     // log the event
     quranEventLogger.logAudioPlayback(
@@ -1554,11 +1571,14 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
     enforceRange: Boolean,
     playbackSpeed: Float
   ) {
-    val ending = end
-      ?: audioUtils.getLastAyahToPlay(
+    val ending = end ?: if (revelationOrder) {
+      SuraAyah(start.sura, quranInfo.getNumberOfAyahs(start.sura))
+    } else {
+      audioUtils.getLastAyahToPlay(
         start, page,
         quranSettings.preferredDownloadAmount, isDualPageVisible
       )
+    }
 
     if (ending != null) {
       Timber.d(
@@ -1567,7 +1587,7 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
             quranSettings.preferredDownloadAmount
       )
       val item = currentQariItem()
-      val shouldStream = quranSettings.shouldStream()
+      val shouldStream = revelationOrder || quranSettings.shouldStream()
       audioPresenter.play(
         start,
         ending,
@@ -1576,7 +1596,8 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
         rangeRepeat,
         enforceRange,
         playbackSpeed,
-        shouldStream
+        shouldStream,
+        revelationOrder
       )
     }
   }
@@ -2018,6 +2039,7 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
   }
 
   companion object {
+    const val EXTRA_REVELATION_ORDER = "revelationOrder"
     private val PAGE_COLOR_PREFERENCES = setOf(
       Constants.PREF_PAGE_THEME,
       Constants.PREF_PAGE_APPEARANCE,

@@ -15,7 +15,8 @@ data class AudioRequest(val start: SuraAyah,
                         val playbackSpeed: Float = 1f,
                         val shouldStream: Boolean,
                         val audioPathInfo: AudioPathInfo,
-                        val wordHighlighting: Boolean = false
+                        val wordHighlighting: Boolean = false,
+                        val revelationOrder: Boolean = false
 ) : Parcelable {
   fun isGapless() = qari.isGapless
   fun needsIsti3athaAudio() =

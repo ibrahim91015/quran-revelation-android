@@ -1,5 +1,6 @@
 package com.quran.labs.androidquran.service
 
+import android.Manifest
 import android.app.ForegroundServiceStartNotAllowedException
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -7,6 +8,7 @@ import android.app.Service
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -524,7 +526,7 @@ class AudioService : Service(), Player.Listener {
         // line, switch the sura.
         val ayahTime = gaplessSuraData.ayahTimings[999]
         if (ayahTime in 1..pos) {
-          val success = localAudioQueue.playAt(sura + 1, 1, false)
+          val success = localAudioQueue.playNextAyah(false)
           if (success && localAudioQueue.getCurrentSura() == sura) {
             // remove any messages currently in the queue
             serviceHandler.removeMessages(MSG_UPDATE_AUDIO_POS)
@@ -709,7 +711,10 @@ class AudioService : Service(), Player.Listener {
         val localAudioRequest = audioRequest ?: return
 
         val sura = localAudioQueue.getCurrentSura()
-        localAudioQueue.playNextAyah(true)
+        if (!localAudioQueue.playNextAyah(true)) {
+          processStopRequest(true)
+          return
+        }
         if (localAudioRequest.isGapless() && sura == localAudioQueue.getCurrentSura()) {
           val timing = getSeekPosition(false)
           if (timing > -1) {
@@ -1154,6 +1159,9 @@ class AudioService : Service(), Player.Listener {
 
   /** Updates the notification.  */
   private fun updateNotification() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+      ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+      PackageManager.PERMISSION_GRANTED) return
     notificationBuilder?.setContentText(getTitle())
     if (!didSetNotificationIconOnNotificationBuilder && notificationIcon != null) {
       notificationBuilder?.setLargeIcon(notificationIcon)
@@ -1163,6 +1171,9 @@ class AudioService : Service(), Player.Listener {
   }
 
   private fun pauseNotification() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+      ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+      PackageManager.PERMISSION_GRANTED) return
     val builder = getPausedNotificationBuilder()
     notificationManager.notify(NOTIFICATION_ID, builder.build())
   }
@@ -1334,7 +1345,9 @@ class AudioService : Service(), Player.Listener {
       val mutabilityFlag = PendingIntent.FLAG_IMMUTABLE
 
       return PendingIntent.getActivity(
-        appContext, REQUEST_CODE_MAIN, Intent(appContext, PagerActivity::class.java),
+        appContext, REQUEST_CODE_MAIN, Intent(appContext, PagerActivity::class.java).apply {
+          putExtra(PagerActivity.EXTRA_REVELATION_ORDER, audioRequest?.revelationOrder == true)
+        },
         PendingIntent.FLAG_UPDATE_CURRENT or mutabilityFlag
       )
     }

@@ -1,10 +1,12 @@
 package com.quran.labs.androidquran.service.util;
 
+import android.Manifest;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Build;
 
 import androidx.core.app.NotificationCompat;
@@ -321,7 +323,9 @@ public class QuranDownloadNotifierImpl implements QuranDownloadNotifier {
       if (shouldForeground && !isForeground) {
         service.startForeground(notificationId, builder.build());
         isForeground = true;
-       } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || notificationManager.areNotificationsEnabled()) {
+       } else if ((Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+           ContextCompat.checkSelfPermission(appContext, Manifest.permission.POST_NOTIFICATIONS) ==
+               PackageManager.PERMISSION_GRANTED) && notificationManager.areNotificationsEnabled()) {
         notificationManager.notify(notificationId, builder.build());
       }
     } catch (SecurityException | IllegalStateException se) {

@@ -326,6 +326,35 @@ class AudioPresenterTest {
   }
 
   @Test
+  fun `revelation playback keeps streaming available after a downloaded surah`() {
+    fakeAudioUtils.haveAllFilesResult = true
+    presenter.bind(fakeScreen)
+    presenter.play(
+      start = SuraAyah(96, 1), end = SuraAyah(96, 19), qari = testQariGapped,
+      verseRepeat = 0, rangeRepeat = 0, enforceRange = false,
+      playbackSpeed = 1.0f, shouldStream = true, revelationOrder = true
+    )
+    val request = fakeScreen.handlePlaybackCalls.single()!!
+    assertThat(request.shouldStream).isTrue()
+    assertThat(request.revelationOrder).isTrue()
+    assertThat(request.audioPathInfo.urlFormat).startsWith("https://")
+  }
+
+  @Test
+  fun `revelation range preserves chronological rather than numeric bounds`() {
+    presenter.bind(fakeScreen)
+    presenter.play(
+      start = SuraAyah(96, 1), end = SuraAyah(68, 52), qari = testQariGapped,
+      verseRepeat = 0, rangeRepeat = 1, enforceRange = true,
+      playbackSpeed = 1.0f, shouldStream = true, revelationOrder = true
+    )
+    val request = fakeScreen.handlePlaybackCalls.single()!!
+    assertThat(request.start).isEqualTo(SuraAyah(96, 1))
+    assertThat(request.end).isEqualTo(SuraAyah(68, 52))
+    assertThat(request.enforceBounds).isTrue()
+  }
+
+  @Test
   fun `should clear activity reference on unbind`() {
     presenter.bind(fakeScreen)
     presenter.unbind(fakeScreen)

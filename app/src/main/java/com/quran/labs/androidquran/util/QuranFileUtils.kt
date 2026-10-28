@@ -719,7 +719,7 @@ class QuranFileUtils @Inject constructor(
   }
 
   companion object {
-    private const val QURAN_BASE = "quran_android/"
+    private const val QURAN_BASE = "quran_revelation/"
     @JvmStatic fun getPageFileName(p: Int): String {
       val nf = NumberFormat.getInstance(Locale.US)
       nf.minimumIntegerDigits = 3

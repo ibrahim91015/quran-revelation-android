@@ -175,7 +175,7 @@ class QuranActivity : AppCompatActivity(),
     val tb = findViewById<Toolbar>(R.id.toolbar)
     setSupportActionBar(tb)
     val ab = supportActionBar
-    ab?.setTitle(R.string.app_name)
+    ab?.setTitle(R.string.revelation_app_name)
 
     val pager = findViewById<ViewPager>(R.id.index_pager)
     pager.offscreenPageLimit = 4
@@ -469,13 +469,16 @@ class QuranActivity : AppCompatActivity(),
     quranNavigator.jumpTo(SuraAyah(sura, ayah), showTranslation = settings.wasShowingTranslation)
   }
 
-  fun jumpTo(row: QuranRow) {
-    val location = if (row.isAyahBookmark || row.isHighlightedAyah) {
+  fun jumpTo(row: QuranRow, revelationOrder: Boolean = false) {
+    val location = if (revelationOrder) {
+      SuraAyah(row.sura, 1)
+    } else if (row.isAyahBookmark || row.isHighlightedAyah) {
       SuraAyah(row.sura, row.ayah)
     } else {
       Page(row.page)
     }
-    quranNavigator.jumpTo(location, row.readingBookmarkType, settings.wasShowingTranslation)
+    quranNavigator.jumpTo(location, row.readingBookmarkType, settings.wasShowingTranslation,
+      revelationOrder = revelationOrder)
   }
 
   private fun gotoPageDialog() {

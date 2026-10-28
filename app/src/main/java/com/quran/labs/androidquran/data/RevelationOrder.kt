@@ -18,4 +18,10 @@ object RevelationOrder {
   )
 
   fun positionOf(sura: Int): Int = suras.indexOf(sura)
+
+  fun nextSura(sura: Int): Int? = positionOf(sura).takeIf { it >= 0 }
+    ?.let { suras.getOrNull(it + 1) }
+
+  fun previousSura(sura: Int): Int? = positionOf(sura).takeIf { it > 0 }
+    ?.let { suras[it - 1] }
 }

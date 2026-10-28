@@ -4,6 +4,7 @@ import com.quran.data.core.QuranInfo
 import com.quran.data.model.SuraAyah
 import com.quran.labs.androidquran.common.audio.model.playback.AudioRequest
 import com.quran.labs.androidquran.dao.audio.AudioPlaybackInfo
+import com.quran.labs.androidquran.data.RevelationOrder
 import com.quran.labs.androidquran.extension.requiresBasmallah
 import java.io.File
 import java.util.Locale
@@ -64,11 +65,27 @@ class AudioQueue(private val quranInfo: QuranInfo,
       return true
     }
     val next = playbackInfo.currentAyah.nextAyah()
+    if (next == null) {
+      if (!skipAyahRepeat && shouldRepeat(audioRequest.repeatInfo, playbackInfo.timesPlayed)) {
+        return playAt(playbackInfo.currentAyah.sura, playbackInfo.currentAyah.ayah)
+      }
+      if (audioRequest.enforceBounds &&
+        shouldRepeat(audioRequest.rangeRepeatInfo, playbackInfo.rangePlayedTimes)) {
+        playbackInfo = playbackInfo.copy(
+          currentAyah = audioRequest.start,
+          timesPlayed = 1,
+          rangePlayedTimes = playbackInfo.rangePlayedTimes + 1,
+          shouldPlayBasmallah = !audioRequest.isGapless() && audioRequest.start.requiresBasmallah()
+        )
+        return true
+      }
+      return false
+    }
     return playAt(next.sura, next.ayah, skipAyahRepeat)
   }
 
   fun playPreviousAyah(skipAyahRepeat: Boolean = false): Boolean {
-    val previous = playbackInfo.currentAyah.previousAyah()
+    val previous = playbackInfo.currentAyah.previousAyah() ?: return false
     val result = playAt(previous.sura, previous.ayah, skipAyahRepeat)
     if (playbackInfo.shouldPlayBasmallah) {
       playbackInfo = playbackInfo.copy(shouldPlayBasmallah = false)
@@ -86,7 +103,18 @@ class AudioQueue(private val quranInfo: QuranInfo,
     val (sura, ayah) = if (playbackInfo.shouldPlayBasmallah) 1 to 1 else currentSura to currentAyah
     val url = String.format(Locale.US, audioRequest.audioPathInfo.urlFormat, sura, ayah)
     return if (url.startsWith("http://") || url.startsWith("https://")) {
-      url
+      // A streaming session may contain a mixture of downloaded and remote surahs.
+      // Prefer downloaded audio without losing permission to stream the next file.
+      val directory = audioRequest.audioPathInfo.localDirectory
+      val relativePath = if (audioRequest.isGapless()) {
+        String.format(Locale.US, "%03d", sura)
+      } else {
+        "$sura${File.separator}$ayah"
+      }
+      audioRequest.audioPathInfo.allowedExtensions.asSequence()
+        .map { extension -> File(directory, "$relativePath.$extension") }
+        .firstOrNull { file -> directory.isNotEmpty() && file.isFile }
+        ?.absolutePath ?: url
     } else if (File(url).exists()) {
       url
     } else {
@@ -108,19 +136,23 @@ class AudioQueue(private val quranInfo: QuranInfo,
     return repeatValue == -1 || (repeatValue > currentPlaybacks - 1)
   }
 
-  private fun SuraAyah.nextAyah(): SuraAyah {
+  private fun SuraAyah.nextAyah(): SuraAyah? {
     return when {
       ayah + 1 <= quranInfo.getNumberOfAyahs(sura) -> SuraAyah(
           sura, ayah + 1
       )
+      audioRequest.revelationOrder -> RevelationOrder.nextSura(sura)?.let { SuraAyah(it, 1) }
       sura < 114 -> SuraAyah(sura + 1, 1)
       else -> SuraAyah(1, 1)
     }
   }
 
-  private fun SuraAyah.previousAyah(): SuraAyah {
+  private fun SuraAyah.previousAyah(): SuraAyah? {
     return when {
       ayah - 1 > 0 -> SuraAyah(sura, ayah - 1)
+      audioRequest.revelationOrder -> RevelationOrder.previousSura(sura)?.let {
+        SuraAyah(it, quranInfo.getNumberOfAyahs(it))
+      }
       sura > 1 -> SuraAyah(
           sura - 1, quranInfo.getNumberOfAyahs(sura - 1)
       )
@@ -131,6 +163,14 @@ class AudioQueue(private val quranInfo: QuranInfo,
   private fun isOutOfBounds(audioRequest: AudioRequest, sura: Int, ayah: Int): Boolean {
     val start = audioRequest.start
     val end = audioRequest.end
+    if (audioRequest.revelationOrder) {
+      val position = RevelationOrder.positionOf(sura)
+      val startPosition = RevelationOrder.positionOf(start.sura)
+      val endPosition = RevelationOrder.positionOf(end.sura)
+      return position < startPosition || position > endPosition ||
+          (sura == start.sura && ayah < start.ayah) ||
+          (sura == end.sura && ayah > end.ayah)
+    }
     return (sura > end.sura || (end.sura == sura && ayah > end.ayah) ||
             sura < start.sura || (start.sura == sura && ayah < start.ayah))
   }

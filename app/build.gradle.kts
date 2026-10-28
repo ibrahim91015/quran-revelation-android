@@ -36,12 +36,14 @@ android {
   namespace = "com.quran.labs.androidquran"
 
   defaultConfig {
-    versionCode = 3642
-    versionName = "3.6.4"
-    testInstrumentationRunner = "com.quran.labs.androidquran.core.QuranTestRunner"
+    versionCode = 3651001
+    versionName = "3.6.5-revelation.1"
+    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    testProguardFiles("proguard-test.cfg")
   }
 
   buildFeatures.resValues = true
+  testBuildType = providers.gradleProperty("instrumentedBuildType").orElse("debug").get()
 
   androidResources {
     // Indonesian is still in instead of id due to https://issuetracker.google.com/issues/36911507
@@ -74,7 +76,7 @@ android {
   flavorDimensions += listOf("pageType")
   productFlavors {
     create("madani") {
-      applicationId = "com.quran.labs.androidquran"
+      applicationId = "com.ibrahim91015.quran.revelation"
     }
   }
 
@@ -106,6 +108,8 @@ android {
     unitTests {
       isIncludeAndroidResources = true
       all {
+        // Android 16's ApplicationSharedMemory shadow accesses this JDK interface.
+        it.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
         it.testLogging {
           events("passed", "skipped", "failed", "standardOut", "standardError")
           showStandardStreams = true
@@ -136,6 +140,9 @@ androidComponents {
     variant.resValues.put(variant.makeResValueKey("string", "authority"),
       ResValue("$applicationId.data.QuranDataProvider")
     )
+    variant.resValues.put(variant.makeResValueKey("string", "application_id"),
+      ResValue(applicationId)
+    )
     variant.resValues.put(variant.makeResValueKey("string", "file_authority"),
       ResValue("$applicationId.fileprovider")
     )
@@ -165,10 +172,10 @@ androidComponents {
     if (applicationId.endsWith("debug")) {
       val name = variant.flavorName ?: variant.name
       variant.manifestPlaceholders.put("app_debug_label",
-        "Quran ${name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}")
+        "Quran Revelation ${name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}")
       unitTestManifestPlaceholders?.put(
         "app_debug_label",
-        "Quran ${name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}"
+        "Quran Revelation ${name.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }}"
       )
     }
   }
@@ -296,6 +303,9 @@ dependencies {
   debugImplementation(libs.leakcanary.android)
 
   testImplementation(project(":common:test-utils"))
+  androidTestImplementation(libs.androidx.junit)
+  androidTestImplementation(libs.espresso.core)
+  androidTestImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.junit)
   testImplementation(libs.truth)
   testImplementation(libs.okhttp.mockserver)

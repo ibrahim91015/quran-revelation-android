@@ -10,6 +10,7 @@ import com.quran.labs.androidquran.common.audio.model.playback.AudioPathInfo
 import com.quran.labs.androidquran.common.audio.model.playback.AudioRequest
 import com.quran.labs.androidquran.common.audio.util.AudioExtensionDecider
 import com.quran.labs.androidquran.data.QuranDisplayInterface
+import com.quran.labs.androidquran.data.RevelationOrder
 import com.quran.labs.androidquran.presenter.Presenter
 import com.quran.labs.androidquran.service.QuranDownloadService
 import com.quran.labs.androidquran.service.util.ServiceIntentHelper
@@ -40,13 +41,14 @@ constructor(
     rangeRepeat: Int,
     enforceRange: Boolean,
     playbackSpeed: Float,
-    shouldStream: Boolean
+    shouldStream: Boolean,
+    revelationOrder: Boolean = false
   ) {
     val audioPathInfo = getLocalAudioPathInfo(qari)
     if (audioPathInfo != null) {
       // override streaming if all the files are already downloaded
       val stream = if (shouldStream) {
-        !haveAllFiles(audioPathInfo, start, end)
+        revelationOrder || !haveAllFiles(audioPathInfo, start, end)
       } else {
         false
       }
@@ -64,7 +66,12 @@ constructor(
         audioPathInfo
       }
 
-      val (actualStart, actualEnd) = if (start <= end) {
+      val inOrder = if (revelationOrder && start.sura != end.sura) {
+        RevelationOrder.positionOf(start.sura) <= RevelationOrder.positionOf(end.sura)
+      } else {
+        start <= end
+      }
+      val (actualStart, actualEnd) = if (inOrder) {
         start to end
       } else {
         Timber.e(
@@ -84,7 +91,8 @@ constructor(
         enforceRange,
         playbackSpeed,
         stream,
-        audioPath
+        audioPath,
+        revelationOrder = revelationOrder
       )
       play(audioRequest)
     }
