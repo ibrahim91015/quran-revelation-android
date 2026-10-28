@@ -1,0 +1,10 @@
+<resources>
+  <string name="tab_reorder_hint">%1$s. Hold and drag to reorder.</string>
+  <string name="tab_move_left">Move tab left</string>
+  <string name="tab_move_right">Move tab right</string>
+  <string name="replace_audio_title">Start a new recitation?</string>
+  <string name="replace_audio_message">Your previous recitation is paused at %1$s (%2$s). Starting here will discard that listening position.\n\nStop the previous recitation and start here?</string>
+  <string name="replace_audio_confirm">Stop previous and play</string>
+  <string name="warn_manual_pause_title">Confirm replacing paused recitation</string>
+  <string name="warn_manual_pause_summary">Also ask before replacing a recitation you paused manually. Recitations paused by opening another location always ask.</string>
+</resources>

@@ -42,7 +42,8 @@ constructor(
     enforceRange: Boolean,
     playbackSpeed: Float,
     shouldStream: Boolean,
-    revelationOrder: Boolean = false
+    revelationOrder: Boolean = false,
+    sourceTab: String = if (revelationOrder) "revelation" else "surahs"
   ) {
     val audioPathInfo = getLocalAudioPathInfo(qari)
     if (audioPathInfo != null) {
@@ -92,7 +93,8 @@ constructor(
         playbackSpeed,
         stream,
         audioPath,
-        revelationOrder = revelationOrder
+        revelationOrder = revelationOrder,
+        sourceTab = sourceTab
       )
       play(audioRequest)
     }

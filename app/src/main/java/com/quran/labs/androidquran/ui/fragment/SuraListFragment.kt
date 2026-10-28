@@ -81,6 +81,9 @@ class SuraListFragment : Fragment(), QuranTouchListener {
       itemAnimator = DefaultItemAnimator()
       adapter = quranListAdapter
     }
+    com.quran.labs.androidquran.ui.helpers.IndexScrollController(recyclerView, viewLifecycleOwner,
+      if (isRevelationOrder) com.quran.labs.androidquran.ui.helpers.HomeTab.REVELATION
+      else com.quran.labs.androidquran.ui.helpers.HomeTab.SURAHS)
 
     viewLifecycleOwner.lifecycleScope.launch {
       viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -119,19 +122,6 @@ class SuraListFragment : Fragment(), QuranTouchListener {
       viewLifecycleOwner.lifecycleScope.launch {
         readingBookmarks = placedReadingBookmarks(readingBookmarksDao.readingBookmarks())
         updateSuraList()
-        val recentPage = activity.latestPage()
-        if (recentPage != Constants.NO_PAGE) {
-          val sura = quranDisplayData.safelyGetSuraOnPage(recentPage)
-          val position = if (isRevelationOrder) {
-            RevelationOrder.positionOf(sura)
-          } else {
-            val juz = quranInfo.getJuzFromPage(recentPage)
-            sura + juz - 1 + readingBookmarkOffset()
-          }
-          if (position >= 0) {
-            recyclerView.scrollToPosition(position)
-          }
-        }
       }
 
       if (QuranUtils.isRtl()) {
@@ -243,7 +233,8 @@ class SuraListFragment : Fragment(), QuranTouchListener {
   override fun onClick(row: QuranRow, position: Int) {
     val activity = activity as? QuranActivity
     if (activity != null && row.page != 0) {
-      activity.jumpTo(row, isRevelationOrder)
+      activity.jumpTo(row, isRevelationOrder,
+        (recyclerView.adapter as QuranListAdapter).isPlayingPosition(position))
     }
   }
 
@@ -262,6 +253,6 @@ class SuraListFragment : Fragment(), QuranTouchListener {
     }
   }
 
-  private val isRevelationOrder: Boolean
+  val isRevelationOrder: Boolean
     get() = arguments?.getBoolean(ARG_REVELATION_ORDER, false) == true
 }

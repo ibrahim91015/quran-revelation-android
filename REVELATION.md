@@ -55,6 +55,12 @@ not require account sync.
 
 ## Build and validation
 
+Fork releases use independent `v0.0.x` tags and matching app version names, beginning
+with `v0.0.3`. The internal Android version code starts at `4000003`, above the
+legacy `3651002` code, so existing installations upgrade without uninstalling.
+Keep increasing that code for every release. Upstream source versions belong in
+the release provenance, not in the fork's app version or tag.
+
 Use the Gradle wrapper, the JDK specified in `.github/workflows/.java-version`,
 and Android SDK 37 for compilation. The app targets API 36 and supports API 24+.
 
@@ -91,6 +97,10 @@ all accent choices with the original app installed, and every verse plus the
 audio tail of Al-Kawthar with a deliberately early timing end marker. Screen-off
 playback is included. Install the original `com.quran.labs.androidquran` package
 on the dedicated test emulator before running the coexistence test.
+Navigation tests additionally cover background return to a paused ayah, independent
+picker offsets, actual long-press tab dragging, and cancel/confirm replacement of
+an automatically paused session. The policy and UI unit tests cover manual pauses
+and the default-off warning preference.
 The device needs Internet to prepare fixtures. Use a dedicated emulator because
 the offline test temporarily disables and restores Wi-Fi/mobile data.
 

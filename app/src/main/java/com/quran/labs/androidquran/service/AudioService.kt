@@ -382,6 +382,7 @@ class AudioService : Service(), Player.Listener {
     } else if (ACTION_PLAYBACK == action) {
       val updatedAudioRequest = intent.getParcelableExtra<AudioRequest>(EXTRA_PLAY_INFO)
       if (updatedAudioRequest != null) {
+        audioStatusRepository.newSession()
         audioRequest = updatedAudioRequest
         val start = updatedAudioRequest.start
         val basmallah = !updatedAudioRequest.isGapless() && start.requiresBasmallah()
@@ -397,6 +398,8 @@ class AudioService : Service(), Player.Listener {
       processTogglePlaybackRequest()
     } else if (ACTION_PLAY == action) {
       processPlayRequest()
+    } else if (ACTION_PAUSE_FOR_BROWSING == action) {
+      processPauseRequest(forBrowsing = true)
     } else if (ACTION_PAUSE == action) {
       processPauseRequest()
     } else if (ACTION_SKIP == action) {
@@ -598,6 +601,7 @@ class AudioService : Service(), Player.Listener {
   }
 
   private fun processPlayRequest() {
+    audioStatusRepository.clearPauseReason()
     val localAudioRequest = audioRequest
     val localAudioQueue = audioQueue
     if (localAudioRequest == null || localAudioQueue == null) {
@@ -610,6 +614,11 @@ class AudioService : Service(), Player.Listener {
       // If we're stopped, just go ahead to the next file and start playing
       playAudio(localAudioQueue.getCurrentSura() == 9 && localAudioQueue.getCurrentAyah() == 1)
     } else if (State.Paused == state) {
+      if (player?.playbackState == Player.STATE_ENDED) {
+        state = State.Playing
+        onPlayerCompleted()
+        return
+      }
       // If we're paused, just continue playback and restore the
       // 'foreground service' state.
       if (isSetupAsForeground || setUpAsForeground()) {
@@ -620,8 +629,10 @@ class AudioService : Service(), Player.Listener {
     }
   }
 
-  private fun processPauseRequest() {
-    if (State.Playing == state) {
+  private fun processPauseRequest(forBrowsing: Boolean = false) {
+    if (forBrowsing && state == State.Paused) return
+    audioStatusRepository.markPause(forBrowsing)
+    if (State.Playing == state || State.Preparing == state) {
       // Keep the session and foreground notification available for resume.
       state = State.Paused
       serviceHandler.removeMessages(MSG_UPDATE_AUDIO_POS)
@@ -643,6 +654,7 @@ class AudioService : Service(), Player.Listener {
 
   private fun processRewindRequest() {
     if (State.Playing == state || State.Paused == state) {
+      audioStatusRepository.clearPauseReason()
       setState(PlaybackStateCompat.STATE_REWINDING)
       val localPlayer = player ?: return
       val localAudioQueue = audioQueue ?: return
@@ -656,14 +668,15 @@ class AudioService : Service(), Player.Listener {
       }
 
       if (pos > 1500 && !playerOverride) {
+        state = State.Playing // explicit user seek, unlike a delayed completion callback
         localPlayer.seekTo(seekTo)
-        state = State.Playing // in case we were paused
       } else {
         val sura = localAudioQueue.getCurrentSura()
         localAudioQueue.playPreviousAyah(true)
         if (localAudioRequest.isGapless() && sura == localAudioQueue.getCurrentSura()) {
           val timing = getSeekPosition(true)
           if (timing > -1) {
+            state = State.Playing
             localPlayer.seekTo(timing)
           }
           updateNotification()
@@ -687,6 +700,7 @@ class AudioService : Service(), Player.Listener {
       return
     }
     if (State.Playing == state || State.Paused == state) {
+      audioStatusRepository.clearPauseReason()
       setState(PlaybackStateCompat.STATE_SKIPPING_TO_NEXT)
       if (playerOverride) {
         playAudio(false)
@@ -703,8 +717,8 @@ class AudioService : Service(), Player.Listener {
         if (localAudioRequest.isGapless() && sura == localAudioQueue.getCurrentSura()) {
           val timing = getSeekPosition(false)
           if (timing > -1) {
+            state = State.Playing
             localPlayer.seekTo(timing)
-            state = State.Playing // in case we were paused
           }
           updateNotification()
           return
@@ -1085,6 +1099,7 @@ class AudioService : Service(), Player.Listener {
 
   private fun onSeekCompleted() {
     val player = player ?: return
+    if (state == State.Paused) { notifyAyahChanged(); return }
     Timber.d("seek complete! position: %d", player.currentPosition)
 
     state = State.Playing
@@ -1097,6 +1112,7 @@ class AudioService : Service(), Player.Listener {
   }
 
   private fun onPlayerBuffering() {
+    if (state == State.Paused) return
     Timber.d("Player buffering...")
     state = State.Preparing
 
@@ -1121,6 +1137,7 @@ class AudioService : Service(), Player.Listener {
   }
 
   private fun onPlayerCompleted() {
+    if (state == State.Paused) return
     Timber.d("onPlayerCompleted")
     // The exo player finished playing the current file, so
     // we go ahead and start the next.
@@ -1378,6 +1395,8 @@ class AudioService : Service(), Player.Listener {
         appContext, REQUEST_CODE_MAIN, Intent(appContext, PagerActivity::class.java).apply {
           addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
           putExtra(PagerActivity.EXTRA_REVELATION_ORDER, audioRequest?.revelationOrder == true)
+          putExtra(PagerActivity.EXTRA_AUDIO_SOURCE_TAB, audioRequest?.sourceTab)
+          putExtra(PagerActivity.EXTRA_BROWSING_OTHER_LOCATION, false)
           audioQueue?.getCurrentPlaybackAyah()?.let { ayah ->
             putExtra("page", quranInfo.getPageFromSuraAyah(ayah.sura, ayah.ayah))
             putExtra(PagerActivity.EXTRA_HIGHLIGHT_SURA, ayah.sura)
@@ -1422,6 +1441,7 @@ class AudioService : Service(), Player.Listener {
     // These are the Intent actions that we are prepared to handle.
     const val ACTION_PLAYBACK = "com.quran.labs.androidquran.action.PLAYBACK"
     const val ACTION_PLAY = "com.quran.labs.androidquran.action.PLAY"
+    const val ACTION_PAUSE_FOR_BROWSING = "com.ibrahim91015.quran.revelation.action.PAUSE_FOR_BROWSING"
     const val ACTION_PAUSE = "com.quran.labs.androidquran.action.PAUSE"
     const val ACTION_STOP = "com.quran.labs.androidquran.action.STOP"
     const val ACTION_SKIP = "com.quran.labs.androidquran.action.SKIP"

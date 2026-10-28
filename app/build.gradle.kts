@@ -36,8 +36,9 @@ android {
   namespace = "com.quran.labs.androidquran"
 
   defaultConfig {
-    versionCode = 3651002
-    versionName = "3.6.5-revelation.2"
+    // Independent release sequence above the legacy 3651002 upgrade floor.
+    versionCode = 4_000_003
+    versionName = "0.0.3"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 

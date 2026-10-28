@@ -17,6 +17,10 @@ package com.quran.labs.androidquran.view;
  */
 
 import android.content.Context;
+import android.content.ClipData;
+import android.os.SystemClock;
+import android.view.DragEvent;
+import android.view.ViewConfiguration;
 import android.content.res.Resources;
 import android.graphics.Typeface;
 import android.text.TextPaint;
@@ -61,6 +65,21 @@ import java.util.Locale;
  * horizontal scrolling when it makes sense.
  */
 public class SlidingTabLayout extends HorizontalScrollView {
+  public interface TabInteractionListener {
+    void onTabTap(int position, boolean doubleTap);
+    void onTabMoved(int from, int to);
+  }
+  private TabInteractionListener tabInteractionListener;
+  private int lastTappedTab = -1;
+  private long lastTapTime;
+  public void setTabInteractionListener(TabInteractionListener listener) { tabInteractionListener = listener; }
+  public void refreshTabs() {
+    mTabStrip.removeAllViews();
+    populateTabStrip();
+    updateTabsTextColor();
+    mTabStrip.onViewPagerPageChanged(mViewPager.getCurrentItem(), 0f);
+    scrollToTab(mViewPager.getCurrentItem(), 0);
+  }
 
   /**
    * Allows complete control over the colors drawn in the tab layout. Set with
@@ -255,6 +274,41 @@ public class SlidingTabLayout extends HorizontalScrollView {
         tabTitleView.setText(adapter.getPageTitle(i));
       }
       tabView.setOnClickListener(tabClickListener);
+      final int tabPosition = i;
+      tabView.setContentDescription(getContext().getString(R.string.tab_reorder_hint, adapter.getPageTitle(i)));
+      tabView.setOnLongClickListener(view -> {
+        view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+        lastTappedTab = -1;
+        return view.startDragAndDrop(ClipData.newPlainText("quran-tab", ""),
+            new View.DragShadowBuilder(view), Integer.valueOf(tabPosition), 0);
+      });
+      tabView.setOnDragListener((view, event) -> {
+        if (!(event.getLocalState() instanceof Integer)) return false;
+        switch (event.getAction()) {
+          case DragEvent.ACTION_DRAG_STARTED: return true;
+          case DragEvent.ACTION_DRAG_ENTERED: view.setAlpha(0.55f); return true;
+          case DragEvent.ACTION_DRAG_EXITED:
+          case DragEvent.ACTION_DRAG_ENDED: view.setAlpha(1f); return true;
+          case DragEvent.ACTION_DROP:
+            view.setAlpha(1f);
+            int from = (Integer) event.getLocalState();
+            if (tabInteractionListener != null && from >= 0 && from < adapter.getCount()) {
+              tabInteractionListener.onTabMoved(from, tabPosition);
+            }
+            return true;
+          default: return true;
+        }
+      });
+      androidx.core.view.ViewCompat.addAccessibilityAction(tabView,
+          getContext().getString(R.string.tab_move_left), (view, args) -> {
+            if (tabInteractionListener == null || tabPosition == 0) return false;
+            tabInteractionListener.onTabMoved(tabPosition, tabPosition - 1); return true;
+          });
+      androidx.core.view.ViewCompat.addAccessibilityAction(tabView,
+          getContext().getString(R.string.tab_move_right), (view, args) -> {
+            if (tabInteractionListener == null || tabPosition + 1 == adapter.getCount()) return false;
+            tabInteractionListener.onTabMoved(tabPosition, tabPosition + 1); return true;
+          });
 
       final LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
           targetWidth, ViewGroup.LayoutParams.WRAP_CONTENT);
@@ -357,6 +411,11 @@ public class SlidingTabLayout extends HorizontalScrollView {
       for (int i = 0; i < mTabStrip.getChildCount(); i++) {
         if (v == mTabStrip.getChildAt(i)) {
           mViewPager.setCurrentItem(i);
+          long now = SystemClock.uptimeMillis();
+          boolean doubleTap = lastTappedTab == i && now - lastTapTime <= ViewConfiguration.getDoubleTapTimeout();
+          lastTappedTab = doubleTap ? -1 : i;
+          lastTapTime = now;
+          if (tabInteractionListener != null) tabInteractionListener.onTabTap(i, doubleTap);
           return;
         }
       }

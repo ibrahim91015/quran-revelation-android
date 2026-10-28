@@ -51,8 +51,10 @@ class QuranActivityTest {
 
     //then
     Intents.intended(IntentMatchers.hasComponent(PagerActivity::class.java.name))
-    Espresso.onView(ViewMatchers.withText("Surah Al-Fātihah"))
-        .check(ViewAssertions.matches(ViewMatchers.isDisplayed()))
+    Intents.intended(Matchers.allOf(
+      IntentMatchers.hasComponent(PagerActivity::class.java.name),
+      IntentMatchers.hasExtra(PagerActivity.EXTRA_HIGHLIGHT_SURA, 1),
+      IntentMatchers.hasExtra(PagerActivity.EXTRA_HIGHLIGHT_AYAH, 1)))
   }
 
   @Test

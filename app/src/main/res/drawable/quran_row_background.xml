@@ -3,5 +3,6 @@
     <item android:state_activated="true">
       <color android:color="@color/accent_color_dark" />
     </item>
+    <item android:state_selected="true" android:drawable="@color/playing_row_background" />
     <item android:drawable="@drawable/quran_row_ripple" />
 </selector>

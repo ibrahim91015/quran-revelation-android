@@ -114,6 +114,14 @@ class QuranSettingsFragment : PreferenceFragmentCompat() {
       isIconSpaceReserved = false
     }
     findPreference<PreferenceGroup>(getString(R.string.prefs_download_category_key))?.addPreference(sajdahCue)
+    val warn = androidx.preference.SwitchPreferenceCompat(requireContext()).apply {
+      key = "revelation_warn_manual_pause"
+      title = getString(R.string.warn_manual_pause_title)
+      summary = getString(R.string.warn_manual_pause_summary)
+      setDefaultValue(false)
+      isIconSpaceReserved = false
+    }
+    findPreference<PreferenceGroup>(getString(R.string.prefs_download_category_key))?.addPreference(warn)
     val audioManagerPref: Preference? = findPreference(Constants.PREF_AUDIO_MANAGER)
     audioManagerPref?.setOnPreferenceClickListener {
       startActivity(Intent(activity, AudioManagerActivity::class.java))

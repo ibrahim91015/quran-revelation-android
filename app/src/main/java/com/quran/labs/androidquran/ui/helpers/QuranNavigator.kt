@@ -34,10 +34,14 @@ class QuranNavigator @Inject constructor(
     bookmarkType: ReadingBookmarkType? = null,
     showTranslation: Boolean? = null,
     intentFlags: Int = 0,
-    revelationOrder: Boolean? = null
+    revelationOrder: Boolean? = null,
+    sourceTab: String? = null,
+    browsingOtherLocation: Boolean = false
   ) {
     val intent = intentFor(location, showTranslation).addFlags(intentFlags)
     revelationOrder?.let { intent.putExtra(PagerActivity.EXTRA_REVELATION_ORDER, it) }
+    sourceTab?.let { intent.putExtra(PagerActivity.EXTRA_AUDIO_SOURCE_TAB, it) }
+    intent.putExtra(PagerActivity.EXTRA_BROWSING_OTHER_LOCATION, browsingOtherLocation)
     suggestedReadingBookmark.onJump(location, bookmarkType)
     if (context is PagerActivity) {
       context.onNewIntent(intent)

@@ -293,12 +293,31 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
   }
 
   private var revelationOrder = false
+  private var audioSourceTab = "surahs"
+  private var browsingOtherLocation = false
+  private var pendingAudioRequest: AudioRequest? = null
+  private var replacementDialog: AlertDialog? = null
+
+  override fun onUserLeaveHint() {
+    super.onUserLeaveHint()
+    (application as QuranApplication).foregroundAudioRouter.onUserLeaving()
+  }
+
+  private fun setBrowsingOtherLocation(value: Boolean) {
+    browsingOtherLocation = value
+    if (::audioStatusBar.isInitialized) audioStatusBar.audioBarPresenter.setBrowsingOtherLocation(value)
+  }
 
   public override fun onCreate(savedInstanceState: Bundle?) {
     WindowCompat.setDecorFitsSystemWindows(window, false)
     super.onCreate(savedInstanceState)
     revelationOrder = savedInstanceState?.getBoolean(EXTRA_REVELATION_ORDER)
       ?: intent.getBooleanExtra(EXTRA_REVELATION_ORDER, false)
+    audioSourceTab = savedInstanceState?.getString(EXTRA_AUDIO_SOURCE_TAB)
+      ?: intent.getStringExtra(EXTRA_AUDIO_SOURCE_TAB) ?: if (revelationOrder) "revelation" else "surahs"
+    browsingOtherLocation = savedInstanceState?.getBoolean(EXTRA_BROWSING_OTHER_LOCATION)
+      ?: intent.getBooleanExtra(EXTRA_BROWSING_OTHER_LOCATION, false)
+    pendingAudioRequest = savedInstanceState?.getParcelable("pendingAudioRequest")
 
     // field injection
     pagerActivityComponent.inject(this)
@@ -457,6 +476,7 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
     compositeDisposable = CompositeDisposable()
 
     audioStatusBar = findViewById(R.id.audio_area)
+    audioStatusBar.audioBarPresenter.setBrowsingOtherLocation(browsingOtherLocation)
 
     toolBarArea = findViewById(R.id.toolbar_area)
     translationsSpinner = findViewById(R.id.spinner)
@@ -747,6 +767,12 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
   }
 
   private fun onAudioPlaybackAyahChanged(suraAyah: SuraAyah?) {
+    val status = audioStatusRepository.audioPlaybackFlow.value as? com.quran.labs.androidquran.common.audio.model.playback.AudioStatus.Playback
+    if (pendingAudioRequest != null && status?.audioRequest == pendingAudioRequest) {
+      pendingAudioRequest = null
+      setBrowsingOtherLocation(false)
+    }
+    if (browsingOtherLocation) return
     if (suraAyah != null) {
       // continue to snap back to the page when the playback ayah changes
       ensurePage(suraAyah.sura, suraAyah.ayah)
@@ -1051,6 +1077,10 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
 
   public override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
+    if (intent.hasExtra(EXTRA_AUDIO_SOURCE_TAB)) {
+      audioSourceTab = intent.getStringExtra(EXTRA_AUDIO_SOURCE_TAB) ?: "surahs"
+    }
+    setBrowsingOtherLocation(intent.getBooleanExtra(EXTRA_BROWSING_OTHER_LOCATION, false))
     if (intent.hasExtra(EXTRA_REVELATION_ORDER)) {
       revelationOrder = intent.getBooleanExtra(EXTRA_REVELATION_ORDER, false)
     }
@@ -1122,6 +1152,8 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
   }
 
   override fun onDestroy() {
+    replacementDialog?.dismiss()
+    replacementDialog = null
     Timber.d("onDestroy()")
     clearUiVisibilityListener()
 
@@ -1141,6 +1173,9 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
   }
 
   public override fun onSaveInstanceState(state: Bundle) {
+    state.putParcelable("pendingAudioRequest", pendingAudioRequest)
+    state.putString(EXTRA_AUDIO_SOURCE_TAB, audioSourceTab)
+    state.putBoolean(EXTRA_BROWSING_OTHER_LOCATION, browsingOtherLocation)
     state.putBoolean(EXTRA_REVELATION_ORDER, revelationOrder)
     val lastPage = quranInfo.getPageFromPosition(viewPager.currentItem, isDualPageVisible)
     state.putInt(LAST_READ_PAGE, lastPage)
@@ -1530,7 +1565,7 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
   }
 
   override fun onContinuePlaybackPressed() {
-    handlePlayback(null)
+    if (browsingOtherLocation) onPlayPressed() else handlePlayback(null)
   }
 
   override fun onPlayPressed() {
@@ -1539,7 +1574,7 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
     // Several short surahs share one page. Start the selected surah, rather than
     // the preceding canonical surah printed at the top of that page.
     val selected = selectionStart
-    if (revelationOrder && selected != null &&
+    if (selected != null &&
       quranInfo.getPositionFromPage(quranInfo.getPageFromSuraAyah(selected.sura, selected.ayah),
         isDualPageVisible) == position) {
       playFromAyah(selected.sura, selected.ayah)
@@ -1582,6 +1617,40 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
     enforceRange: Boolean,
     playbackSpeed: Float
   ) {
+    confirmAudioReplacement {
+      startFromAyah(start, end, page, verseRepeat, rangeRepeat, enforceRange, playbackSpeed)
+    }
+  }
+
+  private fun confirmAudioReplacement(start: () -> Unit) {
+    val alwaysWarn = androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+      .getBoolean("revelation_warn_manual_pause", false)
+    val previous = audioStatusRepository.audioPlaybackFlow.value as?
+      com.quran.labs.androidquran.common.audio.model.playback.AudioStatus.Playback
+    if (previous == null || !audioStatusRepository.shouldWarnBeforeReplacement(alwaysWarn)) {
+      start()
+      return
+    }
+    if (replacementDialog?.isShowing == true) return
+    val generation = audioStatusRepository.sessionGeneration
+    replacementDialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+      .setTitle(R.string.replace_audio_title)
+      .setMessage(getString(R.string.replace_audio_message,
+        quranDisplayData.getSuraAyahString(this, previous.currentAyah.sura, previous.currentAyah.ayah),
+        getString(if (previous.audioRequest.revelationOrder) R.string.audio_order_revelation else R.string.audio_order_standard)))
+      .setPositiveButton(R.string.replace_audio_confirm) { _, _ ->
+        replacementDialog = null
+        if (generation == audioStatusRepository.sessionGeneration) start() else confirmAudioReplacement(start)
+      }
+      .setNegativeButton(android.R.string.cancel, null)
+      .setOnDismissListener { dismissed -> if (replacementDialog === dismissed) replacementDialog = null }
+      .show()
+  }
+
+  private fun startFromAyah(
+    start: SuraAyah, end: SuraAyah?, page: Int, verseRepeat: Int, rangeRepeat: Int,
+    enforceRange: Boolean, playbackSpeed: Float
+  ) {
     val ending = end ?: if (revelationOrder) {
       SuraAyah(start.sura, quranInfo.getNumberOfAyahs(start.sura))
     } else {
@@ -1608,7 +1677,8 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
         enforceRange,
         playbackSpeed,
         shouldStream,
-        revelationOrder
+        revelationOrder,
+        audioSourceTab
       )
     }
   }
@@ -1654,6 +1724,10 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
   }
 
   override fun handlePlayback(request: AudioRequest?) {
+    if (request != null) {
+      pendingAudioRequest = request
+      setBrowsingOtherLocation(true)
+    }
     needsPermissionToDownloadOver3g = true
     val intent = Intent(this, AudioService::class.java)
     intent.setAction(AudioService.ACTION_PLAYBACK)
@@ -2051,6 +2125,8 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
 
   companion object {
     const val EXTRA_REVELATION_ORDER = "revelationOrder"
+    const val EXTRA_AUDIO_SOURCE_TAB = "audioSourceTab"
+    const val EXTRA_BROWSING_OTHER_LOCATION = "browsingOtherLocation"
     private val PAGE_COLOR_PREFERENCES = setOf(
       Constants.PREF_PAGE_THEME,
       Constants.PREF_PAGE_APPEARANCE,

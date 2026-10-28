@@ -1,0 +1,10 @@
+<resources>
+  <string name="tab_reorder_hint">%1$s. اضغط مطولًا واسحب لتغيير الترتيب.</string>
+  <string name="tab_move_left">نقل التبويب إلى اليسار</string>
+  <string name="tab_move_right">نقل التبويب إلى اليمين</string>
+  <string name="replace_audio_title">بدء تلاوة جديدة؟</string>
+  <string name="replace_audio_message">تلاوتك السابقة متوقفة مؤقتًا عند %1$s (%2$s). البدء هنا سيلغي موضع الاستماع السابق.\n\nهل تريد إيقاف التلاوة السابقة والبدء هنا؟</string>
+  <string name="replace_audio_confirm">إيقاف السابقة والتشغيل</string>
+  <string name="warn_manual_pause_title">تأكيد استبدال التلاوة المتوقفة</string>
+  <string name="warn_manual_pause_summary">السؤال أيضًا قبل استبدال تلاوة أوقفتها يدويًا. يظهر التأكيد دائمًا للتلاوة التي أُوقفت عند فتح موضع آخر.</string>
+</resources>

@@ -60,6 +60,37 @@ class AudioStatusRepositoryTest {
     }
   }
 
+  @Test fun `browsing pause always protects the previous position`() {
+    repository.updateAyahPlayback(buildPlaybackStatus(68, 12, PlaybackStatus.PAUSED))
+    repository.markPause(forBrowsing = true)
+    assertThat(repository.shouldWarnBeforeReplacement(false)).isTrue()
+    assertThat(repository.shouldWarnBeforeReplacement(true)).isTrue()
+  }
+
+  @Test fun `manual pause warns only when explicitly enabled`() {
+    repository.updateAyahPlayback(buildPlaybackStatus(68, 12, PlaybackStatus.PAUSED))
+    repository.markPause(forBrowsing = false)
+    assertThat(repository.shouldWarnBeforeReplacement(false)).isFalse()
+    assertThat(repository.shouldWarnBeforeReplacement(true)).isTrue()
+    repository.updateAyahPlayback(buildPlaybackStatus(68, 12, PlaybackStatus.PLAYING))
+    assertThat(repository.shouldWarnBeforeReplacement(true)).isFalse()
+  }
+
+  @Test fun `new session resume and stop cannot retain an old browsing warning`() {
+    repository.updateAyahPlayback(buildPlaybackStatus(96, 19, PlaybackStatus.PAUSED))
+    repository.markPause(true)
+    repository.clearPauseReason()
+    assertThat(repository.shouldWarnBeforeReplacement(false)).isFalse()
+    repository.markPause(true)
+    val before = repository.sessionGeneration
+    repository.newSession()
+    assertThat(repository.sessionGeneration).isEqualTo(before + 1)
+    assertThat(repository.shouldWarnBeforeReplacement(false)).isFalse()
+    repository.markPause(true)
+    repository.updateAyahPlayback(AudioStatus.Stopped)
+    assertThat(repository.shouldWarnBeforeReplacement(true)).isFalse()
+  }
+
   @Test
   fun `updateAyahPlayback transitions state to Playback with PLAYING status`() = runTest {
     // Arrange

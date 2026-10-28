@@ -98,6 +98,18 @@ class AudioPresenterTest {
 
   // ==================== Playback Tests ====================
 
+  @Test fun `new audio request preserves the exact originating tab`() {
+    fakeAudioUtils.haveAllFilesResult = true
+    fakeAudioUtils.shouldDownloadBasmallahResult = false
+    presenter.bind(fakeScreen)
+    listOf("surahs","juz","revelation","bookmarks").forEach { source ->
+      presenter.play(start,end,testQariGapped,0,0,false,1f,false,
+        revelationOrder=source == "revelation",sourceTab=source)
+    }
+    assertThat(fakeScreen.handlePlaybackCalls.map { it!!.sourceTab })
+      .containsExactly("surahs","juz","revelation","bookmarks").inOrder()
+  }
+
   @Test
   fun `should play audio when all files are downloaded`() {
     fakeAudioUtils.haveAllFilesResult = true

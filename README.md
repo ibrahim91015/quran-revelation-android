@@ -5,10 +5,10 @@ Read and listen to complete surahs in **traditional revelation order**, with the
 This is an independent, unofficial fork of [Quran for Android](https://github.com/quran/quran_android). Its main addition is a **Revelation** tab with audio that follows the same surah sequence. Start Al-‘Alaq (96), and playback continues automatically to Al-Qalam (68), then Al-Muzzammil (73), through to An-Nasr (110).
 
 [![Verification](https://github.com/ibrahim91015/quran-revelation-android/actions/workflows/revelation-verification.yml/badge.svg?branch=main)](https://github.com/ibrahim91015/quran-revelation-android/actions/workflows/revelation-verification.yml)
-[![Latest release](https://img.shields.io/github/v/release/ibrahim91015/quran-revelation-android?display_name=tag)](https://github.com/ibrahim91015/quran-revelation-android/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/ibrahim91015/quran-revelation-android?display_name=tag&sort=date)](https://github.com/ibrahim91015/quran-revelation-android/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/ibrahim91015/quran-revelation-android/total)](https://github.com/ibrahim91015/quran-revelation-android/releases)
 
-**[Download the APK](https://github.com/ibrahim91015/quran-revelation-android/releases/latest)** · **[Release notes](docs/releases/v3.6.5-revelation.2.md)** · **[Roadmap and ideas](ROADMAP.md)** · **[Build and testing guide](REVELATION.md)**
+**[Download the APK](https://github.com/ibrahim91015/quran-revelation-android/releases/latest)** · **[Release notes](docs/releases/v0.0.3.md)** · **[Roadmap and ideas](ROADMAP.md)** · **[Build and testing guide](REVELATION.md)**
 
 ## What is different from the original?
 
@@ -20,6 +20,8 @@ This is an independent, unofficial fork of [Quran for Android](https://github.co
 | Installation | `com.quran.labs.androidquran` | `com.ibrahim91015.quran.revelation`, displayed as **Quran Revelation**, with separate storage and signing. Both apps can be installed together. |
 | Listening controls | Upstream playback interface | Keeps audio while browsing surahs, adds a persistent now-playing card, current-ayah notification links, and optional sajdah tones. |
 | Appearance | Upstream appearance options | Adds Blue, Emerald, Violet, and Amber accents across Material 3 native/Compose controls. |
+| Tab navigation | Upstream index behavior | Independent saved offsets, tap-to-top, recitation markers/double taps, and drag-to-reorder tabs. |
+| Browsing while listening | Upstream audio tracking | Pause and browse another location without losing your place; confirm before replacing an automatically paused recitation. |
 | Distribution | The upstream project’s official channels | Signed standalone APKs from this fork’s GitHub releases. |
 
 The sequence comes from [Tanzil’s revelation-order table](https://tanzil.net/docs/revelation_order), which orders surahs by their **first revealed verses**. It does not claim a chronology for every individual ayah.
@@ -32,15 +34,17 @@ The reciter catalog retains all **89 recitation entries** from the supplied offi
 2. Open the APK on your Android device and allow installation from that browser or file manager. On first launch, let the app download the required Quran pages.
 3. Open **Revelation**, select a surah and reciter, and press Play. Playback follows revelation order and stops after An-Nasr.
 
-The current release, **3.6.5-revelation.2**, targets **Android 16 / API 36**, with a minimum of **Android 7.0 / API 24**. Install it over revelation.1 to keep this fork's data.
+The current release, **0.0.3**, targets **Android 16 / API 36**, with a minimum of **Android 7.0 / API 24**. Install it over either legacy revelation release to keep this fork's data. Fork versions now use **v0.0.x**, independently of the upstream **3.6.5** source base; the higher internal Android version code preserves upgrade compatibility.
+
+Reopening with a playing or paused recitation returns to its current ayah. Without audio, a warm return keeps your tab and scroll position; a fresh start uses your saved first tab. Tap a tab to go to its top, double-tap the recitation's originating tab to find its green row, or hold and drag tabs to change their order. [Audio handoff and navigation details](docs/releases/v0.0.3.md).
 
 Downloaded audio is preferred. Revelation sessions stream missing files as needed, including across surah boundaries, and **can use mobile data**. Download the reciter’s desired surahs ahead of time for offline listening. Gapless reciters provide continuous audio within each surah; opening a new streamed surah can involve buffering.
 
 ## Validation and current limits
 
-The [latest validation report](https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v3.6.5-revelation.2) covers background/picker playback, paused notification links, short-surah endings, touch bounds, asset import, accent themes, and Advanced Settings. Signed release checks include installation alongside the original.
+The [latest validation report](https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v0.0.3) covers playback, tab state and gestures, background/notification navigation, audio handoffs, and the existing touch/import/theme/coexistence checks.
 
-Revelation.2 passed **593 Linux regressions**, **7 Android 16 device tests**, **336 live endpoint checks**, and release lint with **zero errors**. Detailed results and platform limitations are in the release notes.
+The preceding revelation.2 release passed **593 Linux regressions**, **7 Android 16 device tests**, **336 live endpoint checks**, and release lint with **zero errors**. Each release includes its own final results and platform limitations.
 
 The first release established this baseline:
 

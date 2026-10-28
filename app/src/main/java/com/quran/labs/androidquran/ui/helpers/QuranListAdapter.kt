@@ -39,6 +39,22 @@ class QuranListAdapter(
   private var tagMap: Map<String, Tag> = emptyMap()
   private var showTags = false
   private var showDate = false
+  private var playingPosition = -1
+
+  fun isPlayingPosition(position: Int) = position == playingPosition
+  fun setPlayingPosition(position: Int) {
+    if (playingPosition == position) return
+    val old = playingPosition
+    playingPosition = position
+    if (old in elements.indices) notifyItemChanged(old)
+    if (position in elements.indices) notifyItemChanged(position)
+  }
+  fun positionForPlayback(ayah: com.quran.data.model.SuraAyah, tab: HomeTab, page: Int): Int = when (tab) {
+    HomeTab.JUZ -> elements.indexOfLast { !it.isHeader && it.page <= page }
+    HomeTab.BOOKMARKS -> elements.indexOfFirst { !it.isHeader &&
+      ((it.sura == ayah.sura && it.ayah == ayah.ayah) || (it.sura == 0 && it.page == page)) }
+    else -> elements.indexOfFirst { !it.isHeader && !it.isReadingBookmark && it.sura == ayah.sura }
+  }
 
   private var touchListener: QuranTouchListener? = null
 
@@ -89,7 +105,7 @@ class QuranListAdapter(
     if (position != RecyclerView.NO_POSITION) {
       val element = elements[position]
       if (touchListener == null) {
-        (context as QuranActivity).jumpTo(element)
+        (context as QuranActivity).jumpTo(element, fromPlayingRow = position == playingPosition)
       } else {
         touchListener?.onClick(element, position)
       }
@@ -226,6 +242,7 @@ class QuranListAdapter(
   }
 
   private fun bindHeader(holder: HeaderHolder, pos: Int) {
+    holder.view.isSelected = pos == playingPosition
     val item = elements[pos]
     holder.title.text = item.text
     val trailingNumber = item.itemCount ?: item.page

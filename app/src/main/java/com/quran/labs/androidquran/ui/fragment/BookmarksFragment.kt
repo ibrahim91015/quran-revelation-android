@@ -96,6 +96,8 @@ class BookmarksFragment : Fragment(), QuranTouchListener {
     bookmarksAdapter.setQuranTouchListener(this)
     this.bookmarksAdapter = bookmarksAdapter
     recyclerView.setAdapter(bookmarksAdapter)
+    com.quran.labs.androidquran.ui.helpers.IndexScrollController(recyclerView, viewLifecycleOwner,
+      com.quran.labs.androidquran.ui.helpers.HomeTab.BOOKMARKS)
 
     val emptyStateView = view.findViewById<ComposeView>(R.id.bookmarks_empty_state)
     emptyStateView.setContent {

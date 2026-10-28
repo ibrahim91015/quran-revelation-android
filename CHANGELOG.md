@@ -2,6 +2,18 @@
 
 This file tracks changes specific to **Quran Revelation for Android**. The original application’s development history is available in [upstream Quran for Android](https://github.com/quran/quran_android).
 
+## [0.0.3] — 2026-10-28
+
+- Adopt independent `v0.0.x` release versions; retain a higher Android version code for in-place upgrades.
+- Remove latest-reading-page jumps and store separate offsets for every tab.
+- Restore the warm picker state; use the saved leftmost tab for a fresh start and the current ayah for active/paused audio.
+- Add tap-to-top, source-specific double-tap/green recitation markers, and persistent long-press tab reordering.
+- Pause when browsing elsewhere, prevent old audio tracking from navigating the new reader, and protect automatically paused sessions with a cancel/confirm handoff.
+- Add an opt-in warning for replacing manually paused sessions.
+- Correct the Android 10+ reader theme and prevent delayed callbacks from resuming a paused session.
+
+See the [release notes](docs/releases/v0.0.3.md) for exact behavior, upgrades, and verification.
+
 ## [3.6.5-revelation.2] — 2026-10-28
 
 - Keep playback and paused notifications when returning to the picker; add a now-playing card with pause/resume.
@@ -45,3 +57,4 @@ See the [full release notes](docs/releases/v3.6.5-revelation.1.md) for installat
 
 [3.6.5-revelation.1]: https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v3.6.5-revelation.1
 [3.6.5-revelation.2]: https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v3.6.5-revelation.2
+[0.0.3]: https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v0.0.3

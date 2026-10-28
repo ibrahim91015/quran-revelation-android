@@ -42,6 +42,8 @@ class AudioBarPresenter @Inject constructor(
 ) {
 
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+  private val browsingOtherLocation = MutableStateFlow(false)
+  fun setBrowsingOtherLocation(value: Boolean) { browsingOtherLocation.value = value }
   private val internalAudioBarFlow =
     MutableStateFlow<AudioBarState>(AudioBarState.Loading(-1, R.string.loading))
 
@@ -55,8 +57,9 @@ class AudioBarPresenter @Inject constructor(
       audioStatusRepository.audioPlaybackFlow,
       currentQariManager.flow(),
       recitationPresenter.isRecitationEnabledFlow(),
-    ) { audioStatus, qari, isRecitationEnabled ->
-      transformAudioBarState(audioStatus, isRecitationEnabled, qari)
+      browsingOtherLocation,
+    ) { audioStatus, qari, isRecitationEnabled, browsing ->
+      transformAudioBarState(if (browsing) AudioStatus.Stopped else audioStatus, isRecitationEnabled, qari)
     }
       .onEach { internalAudioBarFlow.value = it }
       .launchIn(scope)

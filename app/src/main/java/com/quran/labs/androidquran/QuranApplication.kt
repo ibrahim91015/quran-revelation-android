@@ -24,6 +24,10 @@ open class QuranApplication : Application(), QuranApplicationComponentProvider, 
   @Inject lateinit var quranWorkerFactory: QuranWorkerFactory
   @Inject lateinit var bookmarksWidgetSubscriber: BookmarksWidgetSubscriber
   @Inject lateinit var quranSettings: QuranSettings
+  @Inject lateinit var audioStatus: com.quran.labs.androidquran.common.audio.repository.AudioStatusRepository
+  @Inject lateinit var quranInfo: com.quran.data.core.QuranInfo
+  val homeIndexState by lazy { com.quran.labs.androidquran.ui.helpers.HomeIndexState(this) }
+  val foregroundAudioRouter by lazy { ForegroundAudioRouter(this) }
 
   override fun provideQuranApplicationComponent(): QuranApplicationComponent {
     return applicationComponent
@@ -38,6 +42,7 @@ open class QuranApplication : Application(), QuranApplicationComponentProvider, 
     bookmarksWidgetSubscriber.subscribeBookmarksWidgetIfNecessary()
 
     registerActivityLifecycleCallbacks(AccentActivityCallbacks())
+    registerActivityLifecycleCallbacks(foregroundAudioRouter)
     com.quran.labs.androidquran.common.ui.core.QuranAccent.current =
       AccentActivityCallbacks.selectedAccent(this)
     // theme setup

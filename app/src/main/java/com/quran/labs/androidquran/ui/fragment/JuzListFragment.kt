@@ -70,6 +70,8 @@ class JuzListFragment : Fragment() {
     recyclerView.adapter = adapter
     this.recyclerView = recyclerView
     this.adapter = adapter
+    com.quran.labs.androidquran.ui.helpers.IndexScrollController(recyclerView, viewLifecycleOwner,
+      com.quran.labs.androidquran.ui.helpers.HomeTab.JUZ)
 
     ViewCompat.setOnApplyWindowInsetsListener(recyclerView) { view, windowInsets ->
       val insets = windowInsets.getInsets(
@@ -108,18 +110,6 @@ class JuzListFragment : Fragment() {
   }
 
   override fun onResume() {
-    val activity = requireActivity()
-    if (activity is QuranActivity) {
-      viewLifecycleOwner.lifecycleScope.launch {
-        val recentPage = activity.latestPage()
-        if (recentPage != Constants.NO_PAGE) {
-          val juz = quranInfo.getJuzFromPage(recentPage)
-          val position = (juz - 1) * 9
-          recyclerView?.scrollToPosition(position)
-        }
-      }
-    }
-
     if (QuranUtils.isRtl()) {
       updateScrollBarPositionHoneycomb()
     }

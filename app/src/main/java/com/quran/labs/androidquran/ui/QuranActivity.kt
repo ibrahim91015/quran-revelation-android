@@ -57,6 +57,9 @@ import com.quran.labs.androidquran.ui.fragment.TagBookmarkDialog.OnBookmarkTagsU
 import com.quran.labs.androidquran.ui.helpers.JumpDestination
 import com.quran.labs.androidquran.ui.helpers.QuranNavigator
 import com.quran.labs.androidquran.ui.helpers.QuranRow
+import com.quran.labs.androidquran.ui.helpers.HomeTab
+import com.quran.labs.androidquran.common.audio.model.playback.AudioStatus
+import com.quran.labs.androidquran.common.audio.model.playback.PlaybackStatus
 import com.quran.labs.androidquran.util.AudioUtils
 import com.quran.labs.androidquran.util.QuranSettings
 import com.quran.labs.androidquran.util.QuranUtils
@@ -139,7 +142,12 @@ class QuranActivity : AppCompatActivity(),
   @Inject
   lateinit var extraScreens: Set<@JvmSuppressWildcards ExtraScreenProvider>
 
-  private var jumpToPageOnResume: Int? = null
+  private val homeState get() = (application as QuranApplication).homeIndexState
+  private lateinit var indexAdapter: PagerAdapter
+  private var handleTabEvents = false
+  private var displayedOrder = emptyList<HomeTab>()
+  fun selectedHomeTab(): HomeTab = homeState.selected ?: homeState.order.first()
+  private fun visualTabs() = if (isRtl) homeState.order.asReversed() else homeState.order
 
   public override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
@@ -177,8 +185,7 @@ class QuranActivity : AppCompatActivity(),
                 if (paused) AudioService.ACTION_PLAY else AudioService.ACTION_PAUSE))
             }
             miniPlayer.setOnClickListener {
-              quranNavigator.jumpTo(playing.currentAyah,
-                revelationOrder = playing.audioRequest.revelationOrder)
+              openPlayingAyah()
             }
           }
         }
@@ -213,15 +220,45 @@ class QuranActivity : AppCompatActivity(),
 
     val pager = findViewById<ViewPager>(R.id.index_pager)
     pager.offscreenPageLimit = 4
-    val pagerAdapter = PagerAdapter(supportFragmentManager)
-    pager.adapter = pagerAdapter
+    indexAdapter = PagerAdapter(supportFragmentManager)
+    pager.isSaveEnabled = false
+    pager.isSaveFromParentEnabled = false
+    pager.adapter = indexAdapter
     val indicator = findViewById<SlidingTabLayout>(R.id.indicator)
     indicator.setViewPager(pager)
-    jumpToPageOnResume = if (isRtl) {
-      TITLES.size - 1
-    } else {
-      0
-    }
+    displayedOrder = visualTabs().toList()
+    // A new process/task uses the English-leftmost tab. Recreating a live task
+    // retains its selected identity independently of the ViewPager's old position.
+    val initial = homeState.selected ?: homeState.order.first()
+    homeState.selected = initial
+    pager.setCurrentItem(visualTabs().indexOf(initial), false)
+    indicator.setOnPageChangeListener(object : ViewPager.SimpleOnPageChangeListener() {
+      override fun onPageSelected(position: Int) {
+        if (!handleTabEvents) return
+        homeState.controllers[selectedHomeTab()]?.save()
+        val tab = visualTabs()[position]
+        homeState.selected = tab
+        homeState.top(tab)
+      }
+    })
+    indicator.setTabInteractionListener(object : SlidingTabLayout.TabInteractionListener {
+      override fun onTabTap(position: Int, doubleTap: Boolean) {
+        val tab = visualTabs()[position]
+        if (doubleTap) homeState.controllers[tab]?.playing() else homeState.top(tab)
+      }
+      override fun onTabMoved(from: Int, to: Int) {
+        if (from == to) return
+        val selected = selectedHomeTab()
+        val tabs = visualTabs()
+        handleTabEvents = false
+        homeState.move(tabs[from], tabs[to])
+        indexAdapter.notifyDataSetChanged()
+        pager.setCurrentItem(visualTabs().indexOf(selected), false)
+        indicator.refreshTabs()
+        displayedOrder = visualTabs().toList()
+        handleTabEvents = true
+      }
+    })
 
     if (savedInstanceState != null) {
       showedTranslationUpgradeDialog = savedInstanceState.getBoolean(
@@ -255,22 +292,35 @@ class QuranActivity : AppCompatActivity(),
       finish()
       startActivity(i)
     } else {
-      val pageToJumpTo = jumpToPageOnResume
-      if (pageToJumpTo != null) {
-        findViewById<ViewPager>(R.id.index_pager).currentItem = pageToJumpTo
-        jumpToPageOnResume = null
+      val pager = findViewById<ViewPager>(R.id.index_pager)
+      val wanted = homeState.selected ?: homeState.order.first()
+      handleTabEvents = false
+      if (displayedOrder != visualTabs()) {
+        indexAdapter.notifyDataSetChanged()
+        findViewById<SlidingTabLayout>(R.id.indicator).refreshTabs()
+        displayedOrder = visualTabs().toList()
       }
+      pager.setCurrentItem(visualTabs().indexOf(wanted), false)
+      homeState.selected = wanted
     }
+    handleTabEvents = true
     isPaused = false
   }
 
   override fun onPause() {
+    homeState.controllers.values.forEach { it.save() }
     compositeDisposable.clear()
     isPaused = true
     super.onPause()
   }
 
+  override fun onUserLeaveHint() {
+    super.onUserLeaveHint()
+    (application as QuranApplication).foregroundAudioRouter.onUserLeaving()
+  }
+
   override fun onDestroy() {
+    if (isFinishing && isTaskRoot) homeState.selected = null
     // only set to handle Android Q memory leaks
     backStackListener?.let {
       supportFragmentManager.removeOnBackStackChangedListener(it)
@@ -427,6 +477,7 @@ class QuranActivity : AppCompatActivity(),
   }
 
   override fun onSaveInstanceState(outState: Bundle) {
+    outState.putString("home_selected_tab", selectedHomeTab().key)
     outState.putBoolean(
         SI_SHOWED_UPGRADE_DIALOG,
         showedTranslationUpgradeDialog
@@ -481,23 +532,46 @@ class QuranActivity : AppCompatActivity(),
   }
 
   override fun jumpTo(page: Int) {
-    quranNavigator.jumpTo(Page(page), showTranslation = settings.wasShowingTranslation)
+    browseTo(Page(page), selectedHomeTab())
   }
 
   override fun jumpToAndHighlight(page: Int, sura: Int, ayah: Int) {
-    quranNavigator.jumpTo(SuraAyah(sura, ayah), showTranslation = settings.wasShowingTranslation)
+    browseTo(SuraAyah(sura, ayah), selectedHomeTab())
   }
 
-  fun jumpTo(row: QuranRow, revelationOrder: Boolean = false) {
-    val location = if (revelationOrder) {
+  fun jumpTo(row: QuranRow, revelationOrder: Boolean = false, fromPlayingRow: Boolean = false) {
+    val tab = if (revelationOrder) HomeTab.REVELATION else selectedHomeTab()
+    val status = audioStatus.audioPlaybackFlow.value as? AudioStatus.Playback
+    if (status != null && status.audioRequest.sourceTab == tab.key &&
+      (fromPlayingRow || (row.sura == status.currentAyah.sura && row.rowType == QuranRow.NONE))) {
+      openPlayingAyah()
+      return
+    }
+    val location = if (row.sura > 0 && row.rowType == QuranRow.NONE) {
       SuraAyah(row.sura, 1)
     } else if (row.isAyahBookmark || row.isHighlightedAyah) {
       SuraAyah(row.sura, row.ayah)
     } else {
       Page(row.page)
     }
-    quranNavigator.jumpTo(location, row.readingBookmarkType, settings.wasShowingTranslation,
-      revelationOrder = revelationOrder)
+    browseTo(location, tab, row.readingBookmarkType)
+  }
+
+  fun openPlayingAyah() {
+    val status = audioStatus.audioPlaybackFlow.value as? AudioStatus.Playback ?: return
+    quranNavigator.jumpTo(status.currentAyah, revelationOrder = status.audioRequest.revelationOrder,
+      sourceTab = status.audioRequest.sourceTab)
+  }
+
+  private fun browseTo(location: com.quran.data.model.JumpLocation, tab: HomeTab,
+    bookmark: com.quran.data.model.bookmark.ReadingBookmarkType? = null) {
+    val previous = audioStatus.audioPlaybackFlow.value as? AudioStatus.Playback
+    if (previous != null && previous.playbackStatus != PlaybackStatus.PAUSED) {
+      startService(Intent(this, AudioService::class.java).setAction(AudioService.ACTION_PAUSE_FOR_BROWSING))
+    }
+    quranNavigator.jumpTo(location, bookmark, settings.wasShowingTranslation,
+      revelationOrder = tab == HomeTab.REVELATION, sourceTab = tab.key,
+      browsingOtherLocation = previous != null)
   }
 
   private fun gotoPageDialog() {
@@ -557,33 +631,29 @@ class QuranActivity : AppCompatActivity(),
     override fun getCount() = 4
 
     override fun getItem(position: Int): Fragment {
-      var pos = position
-      if (isRtl) {
-        pos = abs(position - 3)
-      }
-      return when (pos) {
-        SURA_LIST -> SuraListFragment.newInstance()
-        JUZ2_LIST -> JuzListFragment.newInstance()
-        REVELATION_LIST -> SuraListFragment.newRevelationOrderInstance()
-        BOOKMARKS_LIST -> BookmarksFragment.newInstance()
-        else -> BookmarksFragment.newInstance()
+      return when (visualTabs()[position]) {
+        HomeTab.SURAHS -> SuraListFragment.newInstance()
+        HomeTab.JUZ -> JuzListFragment.newInstance()
+        HomeTab.REVELATION -> SuraListFragment.newRevelationOrderInstance()
+        HomeTab.BOOKMARKS -> BookmarksFragment.newInstance()
       }
     }
 
     override fun getItemId(position: Int): Long {
-      val pos = if (isRtl) abs(position - 3) else position
-      return when (pos) {
-        SURA_LIST -> SURA_LIST.toLong()
-        JUZ2_LIST -> JUZ2_LIST.toLong()
-        REVELATION_LIST -> REVELATION_LIST.toLong()
-        BOOKMARKS_LIST -> BOOKMARKS_LIST.toLong()
-        else -> BOOKMARKS_LIST.toLong()
+      return visualTabs()[position].ordinal.toLong()
+    }
+
+    override fun getItemPosition(item: Any): Int {
+      val tab = when (item) {
+        is SuraListFragment -> if (item.isRevelationOrder) HomeTab.REVELATION else HomeTab.SURAHS
+        is JuzListFragment -> HomeTab.JUZ
+        else -> HomeTab.BOOKMARKS
       }
+      return visualTabs().indexOf(tab)
     }
 
     override fun getPageTitle(position: Int): CharSequence {
-      val resId = if (isRtl) ARABIC_TITLES[position] else TITLES[position]
-      return getString(resId)
+      return getString(visualTabs()[position].title)
     }
   }
 

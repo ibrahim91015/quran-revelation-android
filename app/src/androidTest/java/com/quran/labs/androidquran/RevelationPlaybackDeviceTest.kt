@@ -118,6 +118,55 @@ class RevelationPlaybackDeviceTest {
     }
   }
 
+  private fun awaitPaused(probe: AudioService) = runBlocking {
+    withTimeout(15_000) {
+      probe.audioStatusRepository.audioPlaybackFlow.first {
+        it is AudioStatus.Playback && it.playbackStatus == PlaybackStatus.PAUSED
+      }
+    } as AudioStatus.Playback
+  }
+
+  private fun reader(): PagerActivity {
+    val deadline = SystemClock.elapsedRealtime() + 20_000
+    while (SystemClock.elapsedRealtime() < deadline) {
+      var result: PagerActivity? = null
+      instrumentation.runOnMainSync {
+        result = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+          .filterIsInstance<PagerActivity>().firstOrNull()
+      }
+      result?.let { return it }
+      SystemClock.sleep(100)
+    }
+    error("Reader did not resume")
+  }
+
+  private fun prepareReaderAudio(probe: AudioService, request: AudioRequest) {
+    val fixture = com.quran.labs.androidquran.ui.fragment.QuranAdvancedSettingsFragment()
+    (context.applicationContext as QuranApplication).applicationComponent.inject(fixture)
+    val files = fixture.quranFileUtils
+    if (!files.haveAyaPositionFile()) {
+      val archive = File(context.cacheDir,"reader-ayah-fixture.zip")
+      download(files.ayaPositionFileUrl, archive)
+      files.quranAyahDatabaseDirectory.mkdirs()
+      ZipInputStream(archive.inputStream()).use { zip ->
+        var entry = zip.nextEntry
+        while (entry != null) {
+          if (!entry.isDirectory && entry.name.endsWith(".db")) {
+            File(files.quranAyahDatabaseDirectory,entry.name.substringAfterLast('/')).outputStream().use { zip.copyTo(it) }
+          }
+          entry = zip.nextEntry
+        }
+      }
+      assertTrue(files.haveAyaPositionFile())
+    }
+    val timing = File(probe.audioUtils.getQariDatabasePathIfGapless(request.qari)!!)
+    timing.parentFile!!.mkdirs()
+    File(request.audioPathInfo.gaplessDatabase!!).copyTo(timing, overwrite=true)
+    androidx.preference.PreferenceManager.getDefaultSharedPreferences(context).edit()
+      .putBoolean(com.quran.labs.androidquran.data.Constants.PREF_PREFER_STREAMING,true)
+      .putBoolean("revelation_warn_manual_pause",false).commit()
+  }
+
   private fun withForeground(test: (AudioService) -> Unit) {
     shell("input keyevent KEYCODE_WAKEUP")
     shell("pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS")
@@ -208,10 +257,9 @@ class RevelationPlaybackDeviceTest {
       assertTrue(notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString()
         .contains("Revelation order"))
       notification.contentIntent.send()
-      instrumentation.waitForIdleSync()
+      val openedReader = reader()
       instrumentation.runOnMainSync {
-        val reader = ActivityLifecycleMonitorRegistry.getInstance()
-          .getActivitiesInStage(Stage.RESUMED).filterIsInstance<PagerActivity>().single()
+        val reader = openedReader
         assertEquals(paused.currentAyah.sura, reader.intent.getIntExtra(PagerActivity.EXTRA_HIGHLIGHT_SURA, -1))
         assertEquals(paused.currentAyah.ayah, reader.intent.getIntExtra(PagerActivity.EXTRA_HIGHLIGHT_AYAH, -1))
         assertTrue(reader.intent.getBooleanExtra(PagerActivity.EXTRA_REVELATION_ORDER, false))
@@ -267,5 +315,126 @@ class RevelationPlaybackDeviceTest {
         }
       }
     } finally { prefs.edit().putString("revelation_accent", "blue").commit() }
+  }
+
+  @Test fun reopeningFromHomeReturnsDirectlyToPausedAyahWithoutResuming() = withForeground { probe ->
+    action(AudioService.ACTION_PLAYBACK, request(0).copy(start=SuraAyah(96,1),playbackSpeed=1f))
+    awaitPlaying(probe,96)
+    action(AudioService.ACTION_PAUSE)
+    val paused = awaitPaused(probe)
+    shell("input keyevent KEYCODE_HOME")
+    context.startActivity(Intent(context,QuranActivity::class.java)
+      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+    val activity = reader()
+    instrumentation.runOnMainSync {
+      assertEquals(paused.currentAyah.sura,activity.intent.getIntExtra(PagerActivity.EXTRA_HIGHLIGHT_SURA,-1))
+      assertEquals(paused.currentAyah.ayah,activity.intent.getIntExtra(PagerActivity.EXTRA_HIGHLIGHT_AYAH,-1))
+      assertEquals("revelation",activity.intent.getStringExtra(PagerActivity.EXTRA_AUDIO_SOURCE_TAB))
+      assertEquals(PlaybackStatus.PAUSED,(probe.audioStatusRepository.audioPlaybackFlow.value as AudioStatus.Playback).playbackStatus)
+      activity.finish()
+    }
+  }
+
+  @Test fun browsingPausesWithoutSnappingBackAndCancelThenConfirmProtectsOldPosition() = withForeground { probe ->
+    val request = request(0).copy(start=SuraAyah(96,1),playbackSpeed=1f)
+    prepareReaderAudio(probe,request)
+    action(AudioService.ACTION_PLAYBACK,request)
+    awaitPlaying(probe,96)
+    ActivityScenario.launch(QuranActivity::class.java).use { picker ->
+      picker.onActivity { activity ->
+        val order = (activity.application as QuranApplication).homeIndexState.order
+        activity.findViewById<androidx.viewpager.widget.ViewPager>(R.id.index_pager)
+          .setCurrentItem(order.indexOf(com.quran.labs.androidquran.ui.helpers.HomeTab.SURAHS),false)
+        activity.jumpTo(com.quran.labs.androidquran.ui.helpers.QuranRow.Builder().withSura(1).withPage(1).build())
+      }
+      val paused = awaitPaused(probe)
+      assertEquals(96,paused.currentAyah.sura)
+      assertTrue(probe.audioStatusRepository.pausedForBrowsing)
+      val activity = reader()
+      SystemClock.sleep(500)
+      instrumentation.runOnMainSync {
+        val position = activity.findViewById<androidx.viewpager.widget.ViewPager>(R.id.quran_pager).currentItem
+        assertEquals(1,probe.quranInfo.getPageFromPosition(position,false))
+        activity.playFromAyah(SuraAyah(1,1),null,1,0,0,false,1f)
+      }
+      androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText(R.string.replace_audio_title))
+        .check(androidx.test.espresso.assertion.ViewAssertions.matches(androidx.test.espresso.matcher.ViewMatchers.isDisplayed()))
+      androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText(android.R.string.cancel))
+        .perform(androidx.test.espresso.action.ViewActions.click())
+      assertEquals(paused.currentAyah,(probe.audioStatusRepository.audioPlaybackFlow.value as AudioStatus.Playback).currentAyah)
+      instrumentation.runOnMainSync { activity.playFromAyah(SuraAyah(1,1),null,1,0,0,false,1f) }
+      androidx.test.espresso.Espresso.onView(androidx.test.espresso.matcher.ViewMatchers.withText(R.string.replace_audio_confirm))
+        .perform(androidx.test.espresso.action.ViewActions.click())
+      awaitPlaying(probe,1)
+      val playing = probe.audioStatusRepository.audioPlaybackFlow.value as AudioStatus.Playback
+      assertEquals("surahs",playing.audioRequest.sourceTab)
+      assertTrue(!playing.audioRequest.revelationOrder && !probe.audioStatusRepository.pausedForBrowsing)
+      instrumentation.runOnMainSync { activity.finish() }
+    }
+  }
+
+  @Test fun pickerWarmReturnKeepsOffsetTabSwitchResetsAndLongPressDragReorders() = withForeground { probe ->
+    val app = context.applicationContext as QuranApplication
+    val originalOrder = app.homeIndexState.order.toList()
+    probe.audioStatusRepository.updateAyahPlayback(AudioStatus.Stopped)
+    try {
+      ActivityScenario.launch(QuranActivity::class.java).use { picker ->
+        picker.onActivity { activity ->
+          val index = app.homeIndexState.order.indexOf(com.quran.labs.androidquran.ui.helpers.HomeTab.REVELATION)
+          activity.findViewById<androidx.viewpager.widget.ViewPager>(R.id.index_pager).setCurrentItem(index,false)
+        }
+        instrumentation.waitForIdleSync()
+        picker.onActivity { activity ->
+          val list = activity.supportFragmentManager.fragments
+            .filterIsInstance<com.quran.labs.androidquran.ui.fragment.SuraListFragment>()
+            .first { it.isRevelationOrder }.requireView().findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.recycler_view)
+          (list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager).scrollToPositionWithOffset(34,-12)
+        }
+        instrumentation.waitForIdleSync()
+        shell("input keyevent KEYCODE_HOME")
+        context.startActivity(Intent(context,QuranActivity::class.java)
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+        instrumentation.waitForIdleSync()
+        picker.onActivity { activity ->
+          assertEquals(com.quran.labs.androidquran.ui.helpers.HomeTab.REVELATION,activity.selectedHomeTab())
+          val list = activity.supportFragmentManager.fragments
+            .filterIsInstance<com.quran.labs.androidquran.ui.fragment.SuraListFragment>()
+            .first { it.isRevelationOrder }.requireView().findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.recycler_view)
+          assertEquals(34,(list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager).findFirstVisibleItemPosition())
+          val tabs = activity.findViewById<com.quran.labs.androidquran.view.SlidingTabLayout>(R.id.indicator).getChildAt(0) as android.view.ViewGroup
+          tabs.getChildAt(app.homeIndexState.order.indexOf(com.quran.labs.androidquran.ui.helpers.HomeTab.SURAHS)).performClick()
+        }
+        instrumentation.waitForIdleSync()
+        val coordinates = IntArray(4)
+        picker.onActivity { activity ->
+          val tabs = activity.findViewById<com.quran.labs.androidquran.view.SlidingTabLayout>(R.id.indicator).getChildAt(0) as android.view.ViewGroup
+          val from = tabs.getChildAt(app.homeIndexState.order.indexOf(com.quran.labs.androidquran.ui.helpers.HomeTab.REVELATION))
+          val to = tabs.getChildAt(0)
+          val point = IntArray(2)
+          from.getLocationOnScreen(point); coordinates[0]=point[0]+from.width/2; coordinates[1]=point[1]+from.height/2
+          to.getLocationOnScreen(point); coordinates[2]=point[0]+to.width/2; coordinates[3]=point[1]+to.height/2
+        }
+        shell("input touchscreen draganddrop ${coordinates[0]} ${coordinates[1]} ${coordinates[2]} ${coordinates[3]} 750")
+        instrumentation.waitForIdleSync()
+        assertEquals(com.quran.labs.androidquran.ui.helpers.HomeTab.REVELATION,app.homeIndexState.order.first())
+        assertEquals(app.homeIndexState.order,
+          com.quran.labs.androidquran.ui.helpers.HomeIndexState(context).order)
+        picker.onActivity { activity ->
+          val tabs = activity.findViewById<com.quran.labs.androidquran.view.SlidingTabLayout>(R.id.indicator).getChildAt(0) as android.view.ViewGroup
+          tabs.getChildAt(0).performClick()
+        }
+        instrumentation.waitForIdleSync()
+        picker.onActivity { activity ->
+          val list = activity.supportFragmentManager.fragments
+            .filterIsInstance<com.quran.labs.androidquran.ui.fragment.SuraListFragment>()
+            .first { it.isRevelationOrder }.requireView().findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.recycler_view)
+          assertEquals(0,(list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager).findFirstVisibleItemPosition())
+        }
+      }
+    } finally {
+      originalOrder.forEachIndexed { index, tab ->
+        app.homeIndexState.move(tab,app.homeIndexState.order[index])
+      }
+    }
   }
 }
