@@ -39,11 +39,9 @@ android {
     versionCode = 3651001
     versionName = "3.6.5-revelation.1"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    testProguardFiles("proguard-test.cfg")
   }
 
   buildFeatures.resValues = true
-  testBuildType = providers.gradleProperty("instrumentedBuildType").orElse("debug").get()
 
   androidResources {
     // Indonesian is still in instead of id due to https://issuetracker.google.com/issues/36911507

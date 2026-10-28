@@ -69,14 +69,16 @@ Release builds need your own signing key. Supply `STORE_FILE`, `STORE_PASSWORD`,
 
 ```sh
 ./gradlew :app:assembleMadaniRelease -PdisableFirebase
-./gradlew :app:connectedMadaniReleaseAndroidTest -PdisableFirebase -PinstrumentedBuildType=release
+./gradlew :app:connectedMadaniDebugAndroidTest -PdisableFirebase
+python3 tools/check_device_test_results.py
 ```
 
-The device tests exercise the minified, signed release build on API 36 using
+The device tests exercise the audio service in the standard Android test build on API 36 using
 real audio: gapless MP3/Opus streaming, pause/resume and background playback,
 downloaded gapless playback with networking disabled, and gapped streaming with
 verse repeats. They seek to Al-‘Alaq's last verse and require playback to reach
 Al-Qalam's second verse, proving that the next surah's audio actually plays.
+The signed release APK also needs separate installation and playback checks.
 The device needs Internet to prepare fixtures. Use a dedicated emulator because
 the offline test temporarily disables and restores Wi-Fi/mobile data.
 

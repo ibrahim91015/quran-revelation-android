@@ -1159,23 +1159,25 @@ class AudioService : Service(), Player.Listener {
 
   /** Updates the notification.  */
   private fun updateNotification() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-      ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-      PackageManager.PERMISSION_GRANTED) return
     notificationBuilder?.setContentText(getTitle())
     if (!didSetNotificationIconOnNotificationBuilder && notificationIcon != null) {
       notificationBuilder?.setLargeIcon(notificationIcon)
       didSetNotificationIconOnNotificationBuilder = true
     }
-    notificationManager.notify(NOTIFICATION_ID, notificationBuilder?.build())
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+      ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+      PackageManager.PERMISSION_GRANTED) {
+      notificationManager.notify(NOTIFICATION_ID, notificationBuilder?.build())
+    }
   }
 
   private fun pauseNotification() {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-      ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
-      PackageManager.PERMISSION_GRANTED) return
     val builder = getPausedNotificationBuilder()
-    notificationManager.notify(NOTIFICATION_ID, builder.build())
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+      ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+      PackageManager.PERMISSION_GRANTED) {
+      notificationManager.notify(NOTIFICATION_ID, builder.build())
+    }
   }
 
   /**
