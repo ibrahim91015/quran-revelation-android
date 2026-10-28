@@ -40,6 +40,8 @@ Downloaded audio is preferred. Revelation sessions stream missing files as neede
 
 The [latest validation report](https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v3.6.5-revelation.2) covers background/picker playback, paused notification links, short-surah endings, touch bounds, asset import, accent themes, and Advanced Settings. Signed release checks include installation alongside the original.
 
+Revelation.2 passed **593 Linux regressions**, **7 Android 16 device tests**, **336 live endpoint checks**, and release lint with **zero errors**. Detailed results and platform limitations are in the release notes.
+
 The first release established this baseline:
 
 - **588** passing regression tests and database migration checks.

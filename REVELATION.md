@@ -64,9 +64,11 @@ and Android SDK 37 for compilation. The app targets API 36 and supports API 24+.
 python3 tools/verify_revelation_sources.py
 ```
 
-AndroidX FileProvider assumes POSIX path separators. Its bookmark-export tests
-must run on Linux; the included GitHub workflow runs the complete regression
-suite there. Other tests can also be run on Windows.
+Run the complete regression suite on Linux, as the included GitHub workflow does.
+AndroidX FileProvider bookmark-export tests assume POSIX path separators. The
+copied-SQLite import fixture also fails under Windows Robolectric; that same test
+passes on Linux, and the system-picker import is checked separately on Android.
+Pure queue tests and the remaining targeted UI tests can be run on Windows.
 
 Release builds need your own signing key. Supply `STORE_FILE`, `STORE_PASSWORD`,
 `KEY_ALIAS` and `KEY_PASSWORD` as Gradle project properties, preferably through
