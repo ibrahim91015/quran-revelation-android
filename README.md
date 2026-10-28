@@ -1,26 +1,70 @@
-<div align="center">
+# Quran Revelation for Android
 
-<img src="https://raw.githubusercontent.com/quran/quran_android/main/app/src/madani/res/drawable-xxhdpi/icon.png" alt='Quran for Android logo'/>
+Read and listen to complete surahs in **traditional revelation order**, with the familiar Quran for Android reading experience.
 
-# Quran for Android
+This is an independent, unofficial fork of [Quran for Android](https://github.com/quran/quran_android). Its main addition is a **Revelation** tab with audio that follows the same surah sequence. Start Al-‘Alaq (96), and playback continues automatically to Al-Qalam (68), then Al-Muzzammil (73), through to An-Nasr (110).
 
-[![Build Status](https://github.com/quran/quran_android/actions/workflows/build.yml/badge.svg)](https://github.com/quran/quran_android/actions/workflows/build.yml)
-[![Version](https://img.shields.io/github/v/release/quran/quran_android?include_prereleases&sort=semver)](https://github.com/quran/quran_android/releases/latest)
-[![Github Downloads](https://img.shields.io/github/downloads/quran/quran_android/total?logo=Github)](https://github.com/quran/quran_android/releases)
+[![Verification](https://github.com/ibrahim91015/quran-revelation-android/actions/workflows/revelation-verification.yml/badge.svg?branch=main)](https://github.com/ibrahim91015/quran-revelation-android/actions/workflows/revelation-verification.yml)
+[![Latest release](https://img.shields.io/github/v/release/ibrahim91015/quran-revelation-android?display_name=tag)](https://github.com/ibrahim91015/quran-revelation-android/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/ibrahim91015/quran-revelation-android/total)](https://github.com/ibrahim91015/quran-revelation-android/releases)
 
-This is a simple (Madani based) Quran app for Android.
+**[Download the APK](https://github.com/ibrahim91015/quran-revelation-android/releases/latest)** · **[Release notes](docs/releases/v3.6.5-revelation.1.md)** · **[Roadmap and ideas](ROADMAP.md)** · **[Build and testing guide](REVELATION.md)**
 
-[<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
-      alt='Get it on Google Play'
-      height="80">](https://play.google.com/store/apps/details?id=com.quran.labs.androidquran)
-[<img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png"
-      alt="Get it at IzzyOnDroid"
-      height="80">](https://apt.izzysoft.de/packages/com.quran.labs.androidquran)
-[<img src="https://user-images.githubusercontent.com/69304392/148696068-0cfea65d-b18f-4685-82b5-329a330b1c0d.png"
-      alt='Get it on GitHub'
-      height="80">](https://github.com/quran/quran_android/releases/latest)
+## What is different from the original?
 
-<div align="left">
+| Area | Original Quran for Android | This fork |
+| --- | --- | --- |
+| Home navigation | Surahs, Juz’, and Bookmarks | Adds a Revelation tab with all 114 surahs in Tanzil’s traditional sequence. |
+| Audio progression | Canonical surah order | Revelation sessions follow revelation order; ordinary Surahs-tab sessions keep canonical order. |
+| Quran text and numbering | Canonical surah numbers and normal verse order | Preserves the same numbers, verse order, and mushaf pages. The extra index changes which surah comes next. |
+| Installation | `com.quran.labs.androidquran` | `com.ibrahim91015.quran.revelation`, displayed as **Quran Revelation**, with separate storage and signing. Both apps can be installed together. |
+| Distribution | The upstream project’s official channels | Signed standalone APKs from this fork’s GitHub releases. |
+
+The sequence comes from [Tanzil’s revelation-order table](https://tanzil.net/docs/revelation_order), which orders surahs by their **first revealed verses**. It does not claim a chronology for every individual ayah.
+
+The reciter catalog retains all **89 recitation entries** from the supplied official Quran.com 3.6.4 APK, including **70 gapless entries** and **44 Opus alternatives**. These are recitation variants, so the counts are not counts of distinct people. Audio files are downloaded or streamed rather than bundled into the APK.
+
+## Install and listen
+
+1. Open the [latest release](https://github.com/ibrahim91015/quran-revelation-android/releases/latest) and download its signed `.apk` file. Checksums and validation reports are attached there too.
+2. Open the APK on your Android device and allow installation from that browser or file manager. On first launch, let the app download the required Quran pages.
+3. Open **Revelation**, select a surah and reciter, and press Play. Playback follows revelation order and stops after An-Nasr.
+
+The current release, **3.6.5-revelation.1**, targets **Android 16 / API 36**, with a minimum of **Android 7.0 / API 24**.
+
+Downloaded audio is preferred. Revelation sessions stream missing files as needed, including across surah boundaries, and **can use mobile data**. Download the reciter’s desired surahs ahead of time for offline listening. Gapless reciters provide continuous audio within each surah; opening a new streamed surah can involve buffering.
+
+## Validation and current limits
+
+For `v3.6.5-revelation.1`, validation includes:
+
+- **588** passing regression tests and database migration checks.
+- **4** passing Android 16 playback tests covering gapless MP3/Opus, pause/resume, background playback, offline audio, and gapped audio with repeats.
+- **336** passing live audio/timing endpoint checks and a full comparison of the 114-surah sequence with Tanzil.
+- Release lint with **zero errors**, APK signature verification, and 16 KiB zip-alignment checks.
+- A separate UI playback check of the signed release APK that automatically advanced from Al-‘Alaq to Al-Qalam.
+
+See the [release notes and attached evidence](https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v3.6.5-revelation.1). Device testing used an **Android 16 emulator**; physical-phone testing remains a priority. Nonblocking lint warnings are recorded in the attached report. External audio-host availability can change after a test run.
+
+Quran.com account sync requires OAuth registration for this independently signed app. Local reading, bookmarks, downloads, and audio work without an account.
+
+## Improvements and future features
+
+The next useful areas to explore are physical-device validation, downloading a complete revelation-order listening queue, clearer “now / next” controls, and better recovery from interrupted streams. Other ideas include chronological reading navigation, memorization session presets, accessibility and translation improvements, and a Revelation view in Android Auto.
+
+These are **proposals**, with priorities and acceptance criteria in [ROADMAP.md](ROADMAP.md). [Open an issue](https://github.com/ibrahim91015/quran-revelation-android/issues/new) to suggest a feature or describe a problem. Shipped changes are recorded in [CHANGELOG.md](CHANGELOG.md).
+
+## Build this fork
+
+```sh
+git clone https://github.com/ibrahim91015/quran-revelation-android.git
+cd quran-revelation-android
+./gradlew :app:assembleMadaniDebug -PdisableFirebase
+```
+
+Use the JDK version specified in [`.github/workflows/.java-version`](.github/workflows/.java-version) and the SDK requirements in the [build and testing guide](REVELATION.md#build-and-validation). Release signing and device-test instructions are in that guide as well.
+
+The upstream acknowledgments and reuse notices follow.
 
 ## Credits
 
@@ -31,9 +75,9 @@ This is a simple (Madani based) Quran app for Android.
 
 ## Contributing
 
-If you'd like to contribute, please take a look at the [PRs Welcome](https://github.com/quran/quran_android/issues?q=is%3Aissue+is%3Aopen+label%3A%22PRs+Welcome%22) label on the issue tracker. For new features, please open an issue to discuss it before beginning implementation.
+For this fork’s bugs and feature requests, use [this repository’s issues](https://github.com/ibrahim91015/quran-revelation-android/issues) and review the [roadmap](ROADMAP.md) before beginning a larger change. For contributions to the original application, see upstream’s [PRs Welcome](https://github.com/quran/quran_android/issues?q=is%3Aissue+is%3Aopen+label%3A%22PRs+Welcome%22) label.
 
-Use [`quran_android-code_style.xml`](https://github.com/quran/quran_android/blob/main/quran_android-code_style.xml) for Android Studio / IntelliJ code styles. Import it by copying it to the Android Studio/IntelliJ IDEA codestyles folder. For Android Studio, that folder is located at `~/.AndroidStudio[Version]/config/codestyles` (the root folder name may differ depending on the host machine and Android Studio version, but the rest of the path should be same). After copying the `quran_android-code_style.xml`, go to Code Style preferences screen and choose `quran_android-code_style` from Code Style Schemes.
+Use [`quran_android-code_style.xml`](quran_android-code_style.xml) for Android Studio / IntelliJ code styles. Import it by copying it to the Android Studio/IntelliJ IDEA codestyles folder. For Android Studio, that folder is located at `~/.AndroidStudio[Version]/config/codestyles` (the root folder name may differ depending on the host machine and Android Studio version, but the rest of the path should be same). After copying the `quran_android-code_style.xml`, go to Code Style preferences screen and choose `quran_android-code_style` from Code Style Schemes.
 
 Please set your Android studio kotlin code style based on [Kotlin Coding Conventions](https://kotlinlang.org/docs/reference/coding-conventions.html). You can configure it from menu Settings | Editor | Code Style | Kotlin, click on "Set from…" link in the upper right corner, and select "Predefined style / Kotlin style guide" from the menu.
 
@@ -44,7 +88,7 @@ May Allah reward all the awesome [Contributors and Translators](https://github.c
 
 ### Command Line
 
-You can build Quran from the command line by running `./gradlew assembleMadaniDebug`.
+You can build the fork from the command line by running `./gradlew :app:assembleMadaniDebug -PdisableFirebase`. See [REVELATION.md](REVELATION.md#build-and-validation) for the toolchain, signing, and verification steps.
 
 ### Android Studio / IntelliJ
 
@@ -68,10 +112,10 @@ Please keep use of this code for non-profit purposes only. Also, please note tha
 * [Material Design Components](https://github.com/material-components/material-components-android)
 * [AndroidSlidingUpPanel](https://github.com/umano/AndroidSlidingUpPanel)
 * [OkHttp](https://github.com/square/okhttp)
-* [RxJava 2](https://github.com/ReactiveX/RxJava)
+* [RxJava](https://github.com/ReactiveX/RxJava)
 * [RxAndroid](https://github.com/ReactiveX/RxAndroid)
 * [Moshi](https://github.com/square/moshi)
-* [Dagger2](https://google.github.io/dagger/)
+* Metro (`dev.zacsweers.metro`) for dependency injection.
 * [Timber](https://github.com/JakeWharton/timber)
 * [dnsjava](http://dnsjava.org)
 * [NumberPicker](https://github.com/ShawnLin013/NumberPicker)
