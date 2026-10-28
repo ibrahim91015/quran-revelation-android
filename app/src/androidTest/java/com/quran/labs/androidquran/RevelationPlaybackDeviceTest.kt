@@ -2,6 +2,11 @@ package com.quran.labs.androidquran
 
 import android.content.Context
 import android.content.Intent
+import android.app.Notification
+import android.app.NotificationManager
+import android.database.sqlite.SQLiteDatabase
+import android.media.MediaMetadataRetriever
+import android.os.SystemClock
 import android.net.ConnectivityManager
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -15,6 +20,9 @@ import com.quran.labs.androidquran.common.audio.model.playback.AudioStatus
 import com.quran.labs.androidquran.common.audio.model.playback.PlaybackStatus
 import com.quran.labs.androidquran.service.AudioService
 import com.quran.labs.androidquran.ui.QuranActivity
+import com.quran.labs.androidquran.ui.PagerActivity
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -111,6 +119,7 @@ class RevelationPlaybackDeviceTest {
   }
 
   private fun withForeground(test: (AudioService) -> Unit) {
+    shell("input keyevent KEYCODE_WAKEUP")
     shell("pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS")
     ActivityScenario.launch(QuranActivity::class.java).use {
       val probe = AudioService()
@@ -137,7 +146,10 @@ class RevelationPlaybackDeviceTest {
     action(AudioService.ACTION_PLAY)
     context.startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
       .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    awaitPlaying(probe, 68, minimumAyah = 2)
+    try {
+      shell("input keyevent KEYCODE_SLEEP")
+      awaitPlaying(probe, 68, minimumAyah = 2)
+    } finally { shell("input keyevent KEYCODE_WAKEUP") }
   }
 
   @Test fun gaplessOpusStreamsFromAlAlaqIntoAlQalam() = withForeground { probe ->
@@ -170,5 +182,90 @@ class RevelationPlaybackDeviceTest {
     action(AudioService.ACTION_PLAYBACK, request(6).copy(repeatInfo = 1))
     awaitPlaying(probe, 96)
     awaitPlaying(probe, 68, minimumAyah = 2)
+  }
+
+  @Test fun pickerReturnAndRecreationKeepPausedNotificationAndTapOpensCurrentAyah() = withForeground { probe ->
+    action(AudioService.ACTION_PLAYBACK, request(0))
+    awaitPlaying(probe, 96)
+    ActivityScenario.launch(QuranActivity::class.java).use { picker ->
+      SystemClock.sleep(1000)
+      assertTrue(probe.audioStatusRepository.audioPlaybackFlow.value is AudioStatus.Playback)
+      action(AudioService.ACTION_PAUSE)
+      val paused = runBlocking {
+        withTimeout(10_000) { probe.audioStatusRepository.audioPlaybackFlow.first {
+          it is AudioStatus.Playback && it.playbackStatus == PlaybackStatus.PAUSED
+        } }
+      } as AudioStatus.Playback
+      picker.recreate()
+      SystemClock.sleep(1500)
+      assertEquals(PlaybackStatus.PAUSED,
+        (probe.audioStatusRepository.audioPlaybackFlow.value as AudioStatus.Playback).playbackStatus)
+      val manager = context.getSystemService(NotificationManager::class.java)
+      val notification = manager.activeNotifications.single {
+        it.id == com.quran.labs.androidquran.data.Constants.NOTIFICATION_ID_AUDIO_PLAYBACK
+      }.notification
+      assertTrue(notification.flags and Notification.FLAG_ONGOING_EVENT != 0)
+      assertTrue(notification.extras.getCharSequence(Notification.EXTRA_SUB_TEXT).toString()
+        .contains("Revelation order"))
+      notification.contentIntent.send()
+      instrumentation.waitForIdleSync()
+      instrumentation.runOnMainSync {
+        val reader = ActivityLifecycleMonitorRegistry.getInstance()
+          .getActivitiesInStage(Stage.RESUMED).filterIsInstance<PagerActivity>().single()
+        assertEquals(paused.currentAyah.sura, reader.intent.getIntExtra(PagerActivity.EXTRA_HIGHLIGHT_SURA, -1))
+        assertEquals(paused.currentAyah.ayah, reader.intent.getIntExtra(PagerActivity.EXTRA_HIGHLIGHT_AYAH, -1))
+        assertTrue(reader.intent.getBooleanExtra(PagerActivity.EXTRA_REVELATION_ORDER, false))
+        reader.finish()
+      }
+    }
+  }
+
+  @Test fun shortGaplessSurahPlaysEveryVerseAndAudibleTailDespiteEarlyTimingMarker() = withForeground { probe ->
+    val original = request(0)
+    val directory = File(original.audioPathInfo.localDirectory)
+    val file = File(directory, "108.mp3")
+    if (!file.exists()) download(original.qari.url("mp3") + "108.mp3", file)
+    val duration = MediaMetadataRetriever().use { metadata ->
+      metadata.setDataSource(file.path)
+      metadata.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)!!.toLong()
+    }
+    val timing = File(directory, "short-surah-tail.db")
+    File(original.audioPathInfo.gaplessDatabase!!).copyTo(timing, overwrite = true)
+    SQLiteDatabase.openDatabase(timing.path, null, 0).use {
+      it.execSQL("UPDATE timings SET time=1 WHERE sura=108 AND ayah=999")
+    }
+    val request = original.copy(start = SuraAyah(108, 1), audioPathInfo =
+      original.audioPathInfo.copy(gaplessDatabase = timing.path))
+    val observed = mutableSetOf<Int>()
+    action(AudioService.ACTION_PLAYBACK, request)
+    awaitPlaying(probe, 108)
+    val started = SystemClock.elapsedRealtime()
+    runBlocking {
+      withTimeout(90_000) {
+        probe.audioStatusRepository.audioPlaybackFlow.first { status ->
+          if (status is AudioStatus.Playback && status.currentAyah.sura == 108) observed += status.currentAyah.ayah
+          status is AudioStatus.Playback && status.currentAyah.sura == 102 && status.playbackStatus == PlaybackStatus.PLAYING
+        }
+      }
+    }
+    assertEquals(setOf(1, 2, 3), observed)
+    assertTrue("The file's tail must finish before advancing",
+      SystemClock.elapsedRealtime() - started >= duration / 3 - 2000)
+  }
+
+  @Test fun advancedSettingsAndAllAccentThemesOpenWithOriginalInstalled() {
+    context.packageManager.getPackageInfo("com.quran.labs.androidquran", 0)
+    val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+    try {
+      for (accent in listOf("blue", "emerald", "violet", "amber")) {
+        prefs.edit().putString("revelation_accent", accent).commit()
+        ActivityScenario.launch(QuranAdvancedPreferenceActivity::class.java).use { scenario ->
+          scenario.onActivity { activity ->
+            assertTrue(activity.supportFragmentManager.findFragmentById(R.id.content) is
+              com.quran.labs.androidquran.ui.fragment.QuranAdvancedSettingsFragment)
+          }
+        }
+      }
+    } finally { prefs.edit().putString("revelation_accent", "blue").commit() }
   }
 }

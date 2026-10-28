@@ -2,6 +2,18 @@
 
 This file tracks changes specific to **Quran Revelation for Android**. The original application’s development history is available in [upstream Quran for Android](https://github.com/quran/quran_android).
 
+## [3.6.5-revelation.2] — 2026-10-28
+
+- Keep playback and paused notifications when returning to the picker; add a now-playing card with pause/resume.
+- Open the current playing ayah from notifications and provide reciter/order metadata.
+- Wait for complete gapless files before advancing; handle delayed final-verse tracking.
+- Fix mushaf margin hit detection and scaled/padded coordinates; smooth distant revelation jumps.
+- Add four configurable accent palettes, Material 3 activity themes/controls, and optional sajdah tones.
+- Fix the release-only Advanced Settings bookmark-enum reflection crash.
+- Detect the original app and import accessible copies of audio/translation folders without replacing existing files.
+
+See the [release notes](docs/releases/v3.6.5-revelation.2.md) for test evidence and import limitations.
+
 ## [3.6.5-revelation.1] — 2026-10-28
 
 The first signed release of this fork with automatic revelation-order audio progression, based on upstream `main` at `cd6a99ed096ea1ec8dc1b1f99364244b05001bdd`.
@@ -32,3 +44,4 @@ The first signed release of this fork with automatic revelation-order audio prog
 See the [full release notes](docs/releases/v3.6.5-revelation.1.md) for installation details, test scope, checksums, and known limitations. Proposed work belongs in the [roadmap](ROADMAP.md).
 
 [3.6.5-revelation.1]: https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v3.6.5-revelation.1
+[3.6.5-revelation.2]: https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v3.6.5-revelation.2

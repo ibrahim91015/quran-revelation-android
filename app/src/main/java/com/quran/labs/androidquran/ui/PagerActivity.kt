@@ -32,6 +32,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.appcompat.widget.Toolbar
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -1408,7 +1409,17 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
     if (quranInfo.isValidPage(page)) {
       val position = quranInfo.getPositionFromPage(page, isDualPageVisible)
       if (position != viewPager.currentItem) {
-        viewPager.currentItem = position
+        // Adjacent pages slide normally. Chronological jumps get a brief fade
+        // instead of sweeping through dozens of unrelated mushaf pages.
+        val adjacent = kotlin.math.abs(position - viewPager.currentItem) == 1
+        viewPager.animate().cancel()
+        viewPager.alpha = 1f
+        viewPager.setCurrentItem(position, adjacent)
+        if (!adjacent && viewPager.isAttachedToWindow &&
+          (Build.VERSION.SDK_INT < 26 || android.animation.ValueAnimator.areAnimatorsEnabled())) {
+          viewPager.alpha = 0.85f
+          viewPager.animate().alpha(1f).setDuration(180).start()
+        }
       }
     }
   }
@@ -1651,7 +1662,7 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
     }
 
     Timber.d("starting service for audio playback")
-    startService(intent)
+    ContextCompat.startForegroundService(this, intent)
   }
 
   override fun onPausePressed() {

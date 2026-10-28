@@ -29,6 +29,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentPagerAdapter
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.viewpager.widget.ViewPager
 import com.quran.data.dao.RecentPagesDao
 import com.quran.data.model.Page
@@ -63,7 +64,6 @@ import com.quran.labs.androidquran.view.SlidingTabLayout
 import com.quran.mobile.di.ExtraScreenProvider
 import dev.zacsweers.metro.Inject
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
-import io.reactivex.rxjava3.core.Completable
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -71,7 +71,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import java.util.concurrent.TimeUnit.MILLISECONDS
 import kotlin.math.abs
 
 /**
@@ -122,6 +121,8 @@ class QuranActivity : AppCompatActivity(),
   private lateinit var supportActionModeClearingCallback: OnBackPressedCallback
 
   @Inject lateinit var quranNavigator: QuranNavigator
+  @Inject lateinit var audioStatus: com.quran.labs.androidquran.common.audio.repository.AudioStatusRepository
+  @Inject lateinit var audioDisplayData: com.quran.labs.androidquran.data.QuranDisplayData
 
   @Inject
   lateinit var settings: QuranSettings
@@ -153,6 +154,36 @@ class QuranActivity : AppCompatActivity(),
 
     registerBackPressedCallbacks()
     setContentView(R.layout.quran_index)
+    val miniPlayer = findViewById<com.google.android.material.button.MaterialButton>(R.id.now_playing)
+    val miniCard = findViewById<View>(R.id.now_playing_card)
+    val miniToggle = findViewById<com.google.android.material.button.MaterialButton>(R.id.now_playing_toggle)
+    lifecycleScope.launch {
+      repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+        audioStatus.audioPlaybackFlow.collect { status ->
+          val playing = status as? com.quran.labs.androidquran.common.audio.model.playback.AudioStatus.Playback
+          miniCard.visibility = if (playing == null) View.GONE else View.VISIBLE
+          if (playing != null) {
+            val paused = playing.playbackStatus ==
+              com.quran.labs.androidquran.common.audio.model.playback.PlaybackStatus.PAUSED
+            miniPlayer.text = getString(R.string.now_playing_description,
+              getString(if (paused) R.string.audio_paused_label else R.string.audio_playing_label),
+              audioDisplayData.getSuraAyahString(this@QuranActivity,
+                playing.currentAyah.sura, playing.currentAyah.ayah), playing.audioRequest.qari.name)
+            miniToggle.setIconResource(if (paused)
+              com.quran.labs.androidquran.common.toolbar.R.drawable.ic_play else R.drawable.ic_pause)
+            miniToggle.contentDescription = getString(if (paused) R.string.play else R.string.pause)
+            miniToggle.setOnClickListener {
+              startService(Intent(this@QuranActivity, AudioService::class.java).setAction(
+                if (paused) AudioService.ACTION_PLAY else AudioService.ACTION_PAUSE))
+            }
+            miniPlayer.setOnClickListener {
+              quranNavigator.jumpTo(playing.currentAyah,
+                revelationOrder = playing.audioRequest.revelationOrder)
+            }
+          }
+        }
+      }
+    }
     isRtl = isRtl()
 
     val root = findViewById<ViewGroup>(R.id.root)
@@ -164,6 +195,9 @@ class QuranActivity : AppCompatActivity(),
         topMargin = insets.top
         leftMargin = insets.left
         rightMargin = insets.right
+      }
+      miniCard.updateLayoutParams<ViewGroup.MarginLayoutParams> {
+        bottomMargin = insets.bottom + (8 * resources.displayMetrics.density).toInt()
       }
 
       // if we return WindowInsetsCompat.CONSUMED, the SnackBar won't
@@ -226,21 +260,6 @@ class QuranActivity : AppCompatActivity(),
         findViewById<ViewPager>(R.id.index_pager).currentItem = pageToJumpTo
         jumpToPageOnResume = null
       }
-
-      compositeDisposable.add(
-          Completable.timer(500, MILLISECONDS)
-              .observeOn(AndroidSchedulers.mainThread())
-              .subscribe {
-                try {
-                  startService(
-                    audioUtils.getAudioIntent(this@QuranActivity, AudioService.ACTION_STOP)
-                  )
-                } catch (_: IllegalStateException) {
-                  // do nothing, we might be in the background
-                  // onPause should have stopped us from needing this, but it sometimes happens
-                }
-              }
-      )
     }
     isPaused = false
   }

@@ -8,7 +8,7 @@ This is an independent, unofficial fork of [Quran for Android](https://github.co
 [![Latest release](https://img.shields.io/github/v/release/ibrahim91015/quran-revelation-android?display_name=tag)](https://github.com/ibrahim91015/quran-revelation-android/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/ibrahim91015/quran-revelation-android/total)](https://github.com/ibrahim91015/quran-revelation-android/releases)
 
-**[Download the APK](https://github.com/ibrahim91015/quran-revelation-android/releases/latest)** · **[Release notes](docs/releases/v3.6.5-revelation.1.md)** · **[Roadmap and ideas](ROADMAP.md)** · **[Build and testing guide](REVELATION.md)**
+**[Download the APK](https://github.com/ibrahim91015/quran-revelation-android/releases/latest)** · **[Release notes](docs/releases/v3.6.5-revelation.2.md)** · **[Roadmap and ideas](ROADMAP.md)** · **[Build and testing guide](REVELATION.md)**
 
 ## What is different from the original?
 
@@ -18,6 +18,8 @@ This is an independent, unofficial fork of [Quran for Android](https://github.co
 | Audio progression | Canonical surah order | Revelation sessions follow revelation order; ordinary Surahs-tab sessions keep canonical order. |
 | Quran text and numbering | Canonical surah numbers and normal verse order | Preserves the same numbers, verse order, and mushaf pages. The extra index changes which surah comes next. |
 | Installation | `com.quran.labs.androidquran` | `com.ibrahim91015.quran.revelation`, displayed as **Quran Revelation**, with separate storage and signing. Both apps can be installed together. |
+| Listening controls | Upstream playback interface | Keeps audio while browsing surahs, adds a persistent now-playing card, current-ayah notification links, and optional sajdah tones. |
+| Appearance | Upstream appearance options | Adds Blue, Emerald, Violet, and Amber accents across Material 3 native/Compose controls. |
 | Distribution | The upstream project’s official channels | Signed standalone APKs from this fork’s GitHub releases. |
 
 The sequence comes from [Tanzil’s revelation-order table](https://tanzil.net/docs/revelation_order), which orders surahs by their **first revealed verses**. It does not claim a chronology for every individual ayah.
@@ -30,13 +32,15 @@ The reciter catalog retains all **89 recitation entries** from the supplied offi
 2. Open the APK on your Android device and allow installation from that browser or file manager. On first launch, let the app download the required Quran pages.
 3. Open **Revelation**, select a surah and reciter, and press Play. Playback follows revelation order and stops after An-Nasr.
 
-The current release, **3.6.5-revelation.1**, targets **Android 16 / API 36**, with a minimum of **Android 7.0 / API 24**.
+The current release, **3.6.5-revelation.2**, targets **Android 16 / API 36**, with a minimum of **Android 7.0 / API 24**. Install it over revelation.1 to keep this fork's data.
 
 Downloaded audio is preferred. Revelation sessions stream missing files as needed, including across surah boundaries, and **can use mobile data**. Download the reciter’s desired surahs ahead of time for offline listening. Gapless reciters provide continuous audio within each surah; opening a new streamed surah can involve buffering.
 
 ## Validation and current limits
 
-For `v3.6.5-revelation.1`, validation includes:
+The [latest validation report](https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v3.6.5-revelation.2) covers background/picker playback, paused notification links, short-surah endings, touch bounds, asset import, accent themes, and Advanced Settings. Signed release checks include installation alongside the original.
+
+The first release established this baseline:
 
 - **588** passing regression tests and database migration checks.
 - **4** passing Android 16 playback tests covering gapless MP3/Opus, pause/resume, background playback, offline audio, and gapped audio with repeats.
@@ -44,7 +48,9 @@ For `v3.6.5-revelation.1`, validation includes:
 - Release lint with **zero errors**, APK signature verification, and 16 KiB zip-alignment checks.
 - A separate UI playback check of the signed release APK that automatically advanced from Al-‘Alaq to Al-Qalam.
 
-See the [release notes and attached evidence](https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v3.6.5-revelation.1). Device testing used an **Android 16 emulator**; physical-phone testing remains a priority. Nonblocking lint warnings are recorded in the attached report. External audio-host availability can change after a test run.
+See the [first release's attached evidence](https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v3.6.5-revelation.1). Automated device testing uses an **Android 16 emulator**. The user confirmed physical-phone installation, streaming, and downloaded playback for revelation.1; each update still benefits from fresh phone testing. Nonblocking lint warnings are recorded in the attached reports. External audio-host availability can change after a test run.
+
+Advanced Settings can detect the original app and copy audio/translation assets from an accessible exported folder. Android's private-storage restrictions prevent silently sharing another app's downloads. See the [import instructions](docs/releases/v3.6.5-revelation.2.md#importing-existing-downloads).
 
 Quran.com account sync requires OAuth registration for this independently signed app. Local reading, bookmarks, downloads, and audio work without an account.
 

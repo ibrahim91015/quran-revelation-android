@@ -12,6 +12,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.net.Uri
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
@@ -67,6 +69,7 @@ import com.quran.labs.androidquran.dao.audio.SuraTimings
 import com.quran.labs.androidquran.data.Constants
 import com.quran.labs.androidquran.data.QuranDisplayData
 import com.quran.labs.androidquran.data.QuranFileConstants
+import com.quran.labs.androidquran.data.SajdahLocations
 import com.quran.labs.androidquran.data.TimingRepository
 import com.quran.labs.androidquran.extension.requiresBasmallah
 import com.quran.labs.androidquran.presenter.audio.service.AudioQueue
@@ -518,29 +521,12 @@ class AudioService : Service(), Player.Listener {
           return
         }
 
+        if (updatedAyah > ayah) playSajdahCue(sura, ayah)
         // moved on to next ayah
         updateNotification()
-      } else {
-        // if we have end of sura info and we bypassed end of sura
-        // line, switch the sura.
-        val ayahTime = gaplessSuraData.ayahTimings[999]
-        if (ayahTime in 1..pos) {
-          val success = localAudioQueue.playNextAyah(false)
-          if (success && localAudioQueue.getCurrentSura() == sura) {
-            // remove any messages currently in the queue
-            serviceHandler.removeMessages(MSG_UPDATE_AUDIO_POS)
-
-            // jump back to the ayah we should repeat and play it
-            val seekPos = getSeekPosition(false)
-            localPlayer.seekTo(seekPos)
-          } else if (!success) {
-            processStopRequest()
-          } else {
-            playAudio(true)
-          }
-          return
-        }
       }
+      // A timing database's 999 marker can precede the audible tail. Only
+      // STATE_ENDED advances a whole-surah file, including very short surahs.
 
       // handle word by word tracking if enabled
       val localAudioRequest = audioRequest
@@ -636,7 +622,7 @@ class AudioService : Service(), Player.Listener {
 
   private fun processPauseRequest() {
     if (State.Playing == state) {
-      // Pause exo player and cancel the 'foreground service' state.
+      // Keep the session and foreground notification available for resume.
       state = State.Paused
       serviceHandler.removeMessages(MSG_UPDATE_AUDIO_POS)
       player?.pause()
@@ -756,8 +742,9 @@ class AudioService : Service(), Player.Listener {
     val metadataBuilder = MediaMetadataCompat.Builder()
       .putString(MediaMetadataCompat.METADATA_KEY_TITLE, getTitle())
       .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, localAudioRequest.qari.name)
+      .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, playbackOrderLabel())
     val localPlayer = player
-    if (localPlayer?.isPlaying == true) {
+    if (localPlayer != null && localPlayer.duration > 0) {
       metadataBuilder.putLong(
         MediaMetadataCompat.METADATA_KEY_DURATION,
         localPlayer.duration
@@ -848,6 +835,7 @@ class AudioService : Service(), Player.Listener {
       player.play()
     }
     state = State.Playing
+    setState(PlaybackStateCompat.STATE_PLAYING)
     updateAudioPlaybackStatus()
 
     audioRequest?.playbackSpeed?.let { speed ->
@@ -873,6 +861,15 @@ class AudioService : Service(), Player.Listener {
       )
     }
   }
+
+  private fun playbackOrderLabel(): String = getString(
+    if (audioRequest?.revelationOrder == true) R.string.audio_order_revelation
+    else R.string.audio_order_standard
+  )
+
+  private fun notificationDetails(): String = getString(
+    R.string.audio_notification_details, audioRequest?.qari?.name.orEmpty(), playbackOrderLabel()
+  )
 
   /**
    * Starts playing the next file.
@@ -976,13 +973,11 @@ class AudioService : Service(), Player.Listener {
   }
 
   private fun setState(state: Int) {
-    var position: Long = 0
     val localPlayer = player
-    if (localPlayer != null && localPlayer.isPlaying) {
-      position = localPlayer.currentPosition
-    }
+    val position = localPlayer?.currentPosition ?: 0L
     val builder = PlaybackStateCompat.Builder()
-    builder.setState(state, position, 1.0f)
+    builder.setState(state, position, if (state == PlaybackStateCompat.STATE_PLAYING)
+      audioRequest?.playbackSpeed ?: 1f else 0f)
 
     val actions = when (state) {
       PlaybackStateCompat.STATE_PLAYING -> {
@@ -1071,10 +1066,19 @@ class AudioService : Service(), Player.Listener {
     // Only update state if it's a legitimate transition
     if (isPlaying && state == State.Paused) {
       state = State.Playing
+      setState(PlaybackStateCompat.STATE_PLAYING)
+      updateNotification()
+      if (audioRequest?.isGapless() == true && !playerOverride) {
+        serviceHandler.removeMessages(MSG_UPDATE_AUDIO_POS)
+        serviceHandler.sendEmptyMessage(MSG_UPDATE_AUDIO_POS)
+      }
       updateAudioPlaybackStatus()
-    } else if (!isPlaying && state == State.Playing) {
+    } else if (!isPlaying && state == State.Playing && player?.playbackState == Player.STATE_READY) {
       // Handle automatic pause (audio focus loss, etc.)
       state = State.Paused
+      serviceHandler.removeMessages(MSG_UPDATE_AUDIO_POS)
+      setState(PlaybackStateCompat.STATE_PAUSED)
+      pauseNotification()
       updateAudioPlaybackStatus()
     }
   }
@@ -1103,6 +1107,19 @@ class AudioService : Service(), Player.Listener {
     }
   }
 
+  private fun playSajdahCue(sura: Int, ayah: Int) {
+    if (!SajdahLocations.contains(sura, ayah) ||
+      !androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
+        .getBoolean("revelation_sajdah_cue", true)) return
+    try {
+      val tone = ToneGenerator(AudioManager.STREAM_MUSIC, 45)
+      tone.startTone(ToneGenerator.TONE_PROP_ACK, 180)
+      serviceHandler.postDelayed({ tone.release() }, 250)
+    } catch (exception: RuntimeException) {
+      Timber.w(exception, "Unable to play sajdah cue")
+    }
+  }
+
   private fun onPlayerCompleted() {
     Timber.d("onPlayerCompleted")
     // The exo player finished playing the current file, so
@@ -1113,7 +1130,10 @@ class AudioService : Service(), Player.Listener {
       val localAudioQueue = audioQueue ?: return
       val localAudioRequest = audioRequest ?: return
       val beforeSura = localAudioQueue.getCurrentSura()
-      if (localAudioQueue.playNextAyah(false)) {
+      playSajdahCue(beforeSura, if (localAudioRequest.isGapless()) {
+        quranInfo.getNumberOfAyahs(beforeSura)
+      } else localAudioQueue.getCurrentAyah())
+      if (localAudioQueue.playAfterFile()) {
         if (localAudioRequest.isGapless() && beforeSura == localAudioQueue.getCurrentSura()
         ) {
           // we're actually repeating, but we reached the end of the file before we could
@@ -1162,6 +1182,10 @@ class AudioService : Service(), Player.Listener {
   // https://developer.android.com/develop/ui/views/notifications/notification-permission#exemptions
   @SuppressLint("NotificationPermission")
   private fun updateNotification() {
+    mediaSession.setSessionActivity(notificationPendingIntent)
+    notificationBuilder?.setContentIntent(notificationPendingIntent)
+    notificationBuilder?.setSubText(notificationDetails())
+    notificationBuilder?.setOnlyAlertOnce(true)
     notificationBuilder?.setContentText(getTitle())
     if (!didSetNotificationIconOnNotificationBuilder && notificationIcon != null) {
       notificationBuilder?.setLargeIcon(notificationIcon)
@@ -1172,6 +1196,7 @@ class AudioService : Service(), Player.Listener {
 
   @SuppressLint("NotificationPermission") // Same MediaStyle exemption as updateNotification.
   private fun pauseNotification() {
+    mediaSession.setSessionActivity(notificationPendingIntent)
     val builder = getPausedNotificationBuilder()
     notificationManager.notify(NOTIFICATION_ID, builder.build())
   }
@@ -1250,7 +1275,7 @@ class AudioService : Service(), Player.Listener {
         .setSmallIcon(R.drawable.ic_notification)
         .setColor(notificationColor)
         .setOngoing(true)
-        .setContentTitle(getString(R.string.app_name))
+        .setContentTitle(getString(R.string.revelation_app_name))
         .setContentIntent(pi)
         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         .addAction(R.drawable.ic_previous, getString(R.string.previous), previousIntent)
@@ -1273,6 +1298,10 @@ class AudioService : Service(), Player.Listener {
 
     updatedBuilder.setTicker(audioTitle)
     updatedBuilder.setContentText(audioTitle)
+    updatedBuilder.setSubText(notificationDetails())
+    updatedBuilder.setOnlyAlertOnce(true)
+    updatedBuilder.setContentIntent(notificationPendingIntent)
+    mediaSession.setSessionActivity(notificationPendingIntent)
     return try {
       startForeground(NOTIFICATION_ID, updatedBuilder.build())
       isSetupAsForeground = true
@@ -1314,7 +1343,7 @@ class AudioService : Service(), Player.Listener {
         .setSmallIcon(R.drawable.ic_notification)
         .setColor(notificationColor)
         .setOngoing(true)
-        .setContentTitle(getString(R.string.app_name))
+        .setContentTitle(getString(R.string.revelation_app_name))
         .setContentIntent(pi)
         .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
         .addAction(com.quran.labs.androidquran.common.toolbar.R.drawable.ic_play, getString(R.string.play), resumeIntent)
@@ -1334,6 +1363,9 @@ class AudioService : Service(), Player.Listener {
     }
 
     pauseBuilder.setContentText(getTitle())
+    pauseBuilder.setContentIntent(notificationPendingIntent)
+    pauseBuilder.setSubText(notificationDetails())
+    pauseBuilder.setOnlyAlertOnce(true)
     return pauseBuilder
   }
 
@@ -1344,7 +1376,13 @@ class AudioService : Service(), Player.Listener {
 
       return PendingIntent.getActivity(
         appContext, REQUEST_CODE_MAIN, Intent(appContext, PagerActivity::class.java).apply {
+          addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
           putExtra(PagerActivity.EXTRA_REVELATION_ORDER, audioRequest?.revelationOrder == true)
+          audioQueue?.getCurrentPlaybackAyah()?.let { ayah ->
+            putExtra("page", quranInfo.getPageFromSuraAyah(ayah.sura, ayah.ayah))
+            putExtra(PagerActivity.EXTRA_HIGHLIGHT_SURA, ayah.sura)
+            putExtra(PagerActivity.EXTRA_HIGHLIGHT_AYAH, ayah.ayah)
+          }
         },
         PendingIntent.FLAG_UPDATE_CURRENT or mutabilityFlag
       )

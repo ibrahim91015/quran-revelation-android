@@ -59,6 +59,15 @@ class AudioQueue(private val quranInfo: QuranInfo,
   fun getCurrentAyah() = playbackInfo.currentAyah.ayah
   fun getCurrentPlaybackAyah() = playbackInfo.currentAyah
 
+  /** A whole-surah file may finish before the timing poll observes its last ayah. */
+  fun playAfterFile(): Boolean {
+    if (audioRequest.isGapless()) {
+      val sura = getCurrentSura()
+      playbackInfo = playbackInfo.copy(currentAyah = SuraAyah(sura, quranInfo.getNumberOfAyahs(sura)))
+    }
+    return playNextAyah(false)
+  }
+
   fun playNextAyah(skipAyahRepeat: Boolean = false): Boolean {
     if (playbackInfo.shouldPlayBasmallah) {
       playbackInfo = playbackInfo.copy(shouldPlayBasmallah = false)

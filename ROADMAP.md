@@ -1,6 +1,8 @@
 # Roadmap and feature ideas
 
-These are proposed improvements for **Quran Revelation for Android**. They are a starting point for discussion, with no promised delivery dates. The current release is documented in [CHANGELOG.md](CHANGELOG.md) and the [release notes](docs/releases/v3.6.5-revelation.1.md).
+These are proposed improvements for **Quran Revelation for Android**. They are a starting point for discussion, with no promised delivery dates. The current release is documented in [CHANGELOG.md](CHANGELOG.md) and the [release notes](docs/releases/v3.6.5-revelation.2.md).
+
+Revelation.2 adds the picker now-playing card, paused notification retention, current-ayah links, four accent choices, sajdah cues, safer mushaf margins, and accessible-folder imports. Physical installation, streaming, and downloaded playback were confirmed by the user for revelation.1. The remaining work below extends that foundation.
 
 The aim is to make reading and listening in revelation order dependable and easy to understand, while preserving the Quran text, canonical numbering, verse order, upstream attribution, and existing installation identity.
 

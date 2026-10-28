@@ -1,0 +1,24 @@
+<resources>
+  <string name="accent_color">اللون المميز</string>
+  <string-array name="accent_names">
+    <item>أزرق</item><item>زمردي</item><item>بنفسجي</item><item>كهرماني</item>
+  </string-array>
+  <string name="now_playing_description">%1$s · %2$s\n%3$s</string>
+  <string name="audio_paused_label">متوقف مؤقتًا</string>
+  <string name="audio_playing_label">يُتلى الآن</string>
+  <string name="sajdah_cue_title">تنبيه السجدة</string>
+  <string name="sajdah_cue_summary">إصدار نغمة لطيفة بعد انتهاء آية السجدة، بمستوى صوت الوسائط.</string>
+  <string name="audio_order_revelation">ترتيب النزول</string>
+  <string name="audio_order_standard">ترتيب المصحف</string>
+  <string name="audio_notification_details">%1$s · %2$s</string>
+  <string name="import_assets_title">استيراد التلاوات والترجمات</string>
+  <string name="import_assets_summary">نسخ التنزيلات من مجلد قرآن يمكن الوصول إليه</string>
+  <string name="import_assets_help">اختر نسخة من مجلد القرآن تحتوي على المجلدين audio/ وdatabases/ مع إبقاء أسماء مجلدات القراء كما هي. تُحفظ الملفات الموجودة.\n\nيمنع أندرويد ١١ والإصدارات الأحدث الوصول إلى مجلدات التطبيقات الأخرى الخاصة، ومنها Android/data. إذا تعذّر تصدير الملفات أو نسخها إلى مجلد مشترك من التطبيق الأصلي أو من حاسوب، فنزّلها هنا. قد تحتاج قائمة الترجمات إلى تحديث. لن تتغير ملفات التطبيق الأصلي.</string>
+  <string name="import_assets_choose">اختيار مجلد</string>
+  <string name="import_assets_working">جارٍ الاستيراد… أبقِ هذه الشاشة مفتوحة.</string>
+  <string name="import_assets_result">نُسخ %1$d ملفًا؛ وحُفظ أو تُخطّي %2$d. افتح الترجمات لمراجعة النصوص المستوردة.</string>
+  <string name="import_assets_error">توقف الاستيراد. تحقق من المجلد والمساحة المتاحة ثم أعد المحاولة. حُفظت الملفات المكتملة.</string>
+  <string name="original_app_title">قرآن أندرويد</string>
+  <string name="original_app_detected">التطبيق الأصلي مثبت. لكل تطبيق إعداداته وإشاراته المرجعية وتنزيلاته الخاصة.</string>
+  <string name="original_app_absent">لم يُعثر على التطبيق الأصلي. يمكنك استيراد نسخة احتياطية من مجلد متاح.</string>
+</resources>

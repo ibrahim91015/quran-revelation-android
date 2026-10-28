@@ -26,6 +26,10 @@
   <!-- support android tv -->
   <uses-feature android:name="android.software.leanback" android:required="false" />
 
+  <queries>
+    <package android:name="com.quran.labs.androidquran" />
+  </queries>
+
   <application
       android:banner="@mipmap/tv_banner"
       android:icon="@mipmap/ic_launcher"

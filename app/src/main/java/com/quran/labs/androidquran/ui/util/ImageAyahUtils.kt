@@ -45,6 +45,9 @@ object ImageAyahUtils {
 
     val x = pageXY[0]
     val y = pageXY[1]
+    val textBounds = RectF()
+    coords.values.forEach { bounds -> bounds.forEach { textBounds.union(it.bounds) } }
+    if (!textBounds.contains(x, y)) return null
     var closestLine = -1
     var closestDelta = -1
 
@@ -165,8 +168,9 @@ object ImageAyahUtils {
     val inverse = Matrix()
     if (imageView.imageMatrix.invert(inverse)) {
       results = FloatArray(2)
-      inverse.mapPoints(results, floatArrayOf(screenX, screenY))
-      results[1] = results[1] - imageView.paddingTop
+      inverse.mapPoints(results, floatArrayOf(
+        screenX - imageView.paddingLeft, screenY - imageView.paddingTop
+      ))
     }
     return results
   }

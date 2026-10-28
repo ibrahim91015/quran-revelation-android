@@ -437,4 +437,24 @@
   <!-- notification channel names [CHAR LIMIT=40] -->
   <string name="notification_channel_download">Quran Downloads</string>
   <string name="notification_channel_audio">Quran Recitation</string>
+  <string name="accent_color">Accent color</string>
+  <string name="now_playing_description">%1$s · %2$s\n%3$s</string>
+  <string name="audio_paused_label">Paused</string>
+  <string name="audio_playing_label">Now playing</string>
+  <string-array name="accent_names"><item>Blue</item><item>Emerald</item><item>Violet</item><item>Amber</item></string-array>
+  <string name="sajdah_cue_title">Sajdah sound</string>
+  <string name="sajdah_cue_summary">Play a gentle tone after a prostration verse finishes. Uses your media volume.</string>
+  <string name="audio_order_revelation">Revelation order</string>
+  <string name="audio_order_standard">Surah order</string>
+  <string name="audio_notification_details">%1$s · %2$s</string>
+  <string name="import_assets_title">Import audio and translations</string>
+  <string name="import_assets_summary">Copy downloads from an accessible Quran folder</string>
+  <string name="import_assets_help">Choose a copied Quran folder containing audio/ and databases/ subfolders. Keep the reciter folder names unchanged. Existing files will be kept.\n\nAndroid 11 and later block access to another app’s private folders, including Android/data. If those files cannot be exported or copied to a shared folder using the original app or a computer, download them here instead. Translations may need a catalogue refresh in Translations. The original app’s files will not be changed.</string>
+  <string name="import_assets_choose">Choose folder</string>
+  <string name="import_assets_working">Importing… Keep this screen open.</string>
+  <string name="import_assets_result">Copied %1$d files; kept or skipped %2$d. Open Translations to review imported texts.</string>
+  <string name="import_assets_error">Import stopped. Check the folder and available storage, then try again. Completed copies were kept.</string>
+  <string name="original_app_title">Quran for Android</string>
+  <string name="original_app_detected">Original app detected. Both apps have separate settings, bookmarks, and private downloads.</string>
+  <string name="original_app_absent">Original app not detected. You can still import an accessible backup folder.</string>
 </resources>

@@ -344,6 +344,9 @@ class AyahTrackerPresenter @Inject constructor(
       } else if (eventType == LONG_PRESS) {
         handleLongPress(result)
       }
+    } else if (eventType == SINGLE_TAP) {
+      readingEventPresenter.onAyahSelection(AyahSelection.None)
+      readingEventPresenter.onClick()
     }
   }
 

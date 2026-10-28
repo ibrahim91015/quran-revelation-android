@@ -84,6 +84,11 @@ downloaded gapless playback with networking disabled, and gapped streaming with
 verse repeats. They seek to Al-‘Alaq's last verse and require playback to reach
 Al-Qalam's second verse, proving that the next surah's audio actually plays.
 The signed release APK also needs separate installation and playback checks.
+The suite also covers picker recreation while paused, notification deep links,
+all accent choices with the original app installed, and every verse plus the
+audio tail of Al-Kawthar with a deliberately early timing end marker. Screen-off
+playback is included. Install the original `com.quran.labs.androidquran` package
+on the dedicated test emulator before running the coexistence test.
 The device needs Internet to prepare fixtures. Use a dedicated emulator because
 the offline test temporarily disables and restores Wi-Fi/mobile data.
 

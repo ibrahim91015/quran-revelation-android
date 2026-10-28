@@ -37,6 +37,9 @@ open class QuranApplication : Application(), QuranApplicationComponentProvider, 
     initializeWorkManager()
     bookmarksWidgetSubscriber.subscribeBookmarksWidgetIfNecessary()
 
+    registerActivityLifecycleCallbacks(AccentActivityCallbacks())
+    com.quran.labs.androidquran.common.ui.core.QuranAccent.current =
+      AccentActivityCallbacks.selectedAccent(this)
     // theme setup
     val theme = quranSettings.currentTheme()
     ThemeUtil.setTheme(theme)

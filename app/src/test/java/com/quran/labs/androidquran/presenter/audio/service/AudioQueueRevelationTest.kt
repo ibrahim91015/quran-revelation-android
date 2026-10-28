@@ -44,6 +44,36 @@ class AudioQueueRevelationTest {
     }
   }
 
+  @Test fun `whole file completion advances even if last verse timing poll was delayed`() {
+    RevelationOrder.suras.toList().zipWithNext().forEach { (sura, next) ->
+      val queue = AudioQueue(info, request(start = SuraAyah(sura, 1)))
+      assertThat(queue.playAfterFile()).isTrue()
+      assertThat(queue.getCurrentPlaybackAyah()).isEqualTo(SuraAyah(next, 1))
+    }
+    assertThat(AudioQueue(info, request(start = SuraAyah(110, 1))).playAfterFile()).isFalse()
+  }
+
+  @Test fun `whole file completion still honors verse and range repeats`() {
+    val verse = AudioQueue(info, request(start = SuraAyah(108, 3), repeats = 1))
+    assertThat(verse.playAfterFile()).isTrue()
+    assertThat(verse.getCurrentPlaybackAyah()).isEqualTo(SuraAyah(108, 3))
+    verse.playAfterFile()
+    assertThat(verse.getCurrentPlaybackAyah()).isEqualTo(SuraAyah(102, 1))
+    val range = AudioQueue(info, request(start = SuraAyah(108, 1), end = SuraAyah(108, 3),
+      bounded = true, rangeRepeats = 1))
+    range.playAfterFile()
+    assertThat(range.getCurrentPlaybackAyah()).isEqualTo(SuraAyah(108, 1))
+    assertThat(range.playAfterFile()).isFalse()
+  }
+
+  @Test fun `individual verse completion never skips the rest of a short surah`() {
+    val queue = AudioQueue(info, request(start = SuraAyah(108, 1), gapless = false))
+    queue.playAfterFile()
+    assertThat(queue.getCurrentPlaybackAyah()).isEqualTo(SuraAyah(108, 2))
+    queue.playAfterFile()
+    assertThat(queue.getCurrentPlaybackAyah()).isEqualTo(SuraAyah(108, 3))
+  }
+
   @Test fun `all gapped boundaries preserve basmallah and then play the correct verse`() {
     RevelationOrder.suras.toList().zipWithNext().forEach { (sura, next) ->
       val queue = AudioQueue(info, request(

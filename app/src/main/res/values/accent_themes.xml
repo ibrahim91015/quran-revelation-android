@@ -1,0 +1,38 @@
+<resources>
+  <color name="accent_blue">#1F6FB2</color>
+  <color name="accent_emerald">#006B57</color>
+  <color name="accent_violet">#6750A4</color>
+  <color name="accent_amber">#805600</color>
+  <color name="accent_on_primary">#FFFFFF</color>
+  <color name="accent_blue_container">#E0EDFA</color>
+  <color name="accent_emerald_container">#D7F2E9</color>
+  <color name="accent_violet_container">#EEE7FA</color>
+  <color name="accent_amber_container">#F8ECD2</color>
+  <style name="AccentBase">
+    <item name="colorAccent">?attr/quranAccent</item>
+    <item name="colorPrimary">?attr/quranAccent</item>
+    <item name="colorSecondary">?attr/quranAccent</item>
+    <item name="colorControlActivated">?attr/quranAccent</item>
+    <item name="colorOnPrimary">@color/accent_on_primary</item>
+    <item name="colorOnSecondary">@color/accent_on_primary</item>
+    <item name="colorSecondaryContainer">?attr/colorPrimaryContainer</item>
+    <item name="colorOnPrimaryContainer">?attr/quranAccent</item>
+    <item name="colorOnSecondaryContainer">?attr/quranAccent</item>
+  </style>
+  <style name="AccentBlue" parent="AccentBase">
+    <item name="quranAccent">@color/accent_blue</item>
+    <item name="colorPrimaryContainer">@color/accent_blue_container</item>
+  </style>
+  <style name="AccentEmerald" parent="AccentBase">
+    <item name="quranAccent">@color/accent_emerald</item>
+    <item name="colorPrimaryContainer">@color/accent_emerald_container</item>
+  </style>
+  <style name="AccentViolet" parent="AccentBase">
+    <item name="quranAccent">@color/accent_violet</item>
+    <item name="colorPrimaryContainer">@color/accent_violet_container</item>
+  </style>
+  <style name="AccentAmber" parent="AccentBase">
+    <item name="quranAccent">@color/accent_amber</item>
+    <item name="colorPrimaryContainer">@color/accent_amber_container</item>
+  </style>
+</resources>

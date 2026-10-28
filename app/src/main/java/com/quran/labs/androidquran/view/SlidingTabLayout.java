@@ -112,11 +112,13 @@ public class SlidingTabLayout extends HorizontalScrollView {
     mTitleOffset = (int) (TITLE_OFFSET_DIPS * density);
     mTabPadding = (int) (TAB_VIEW_PADDING_DIPS * density);
 
-    mSelectedTabColor = ContextCompat.getColor(context, R.color.accent_color);
+    TypedValue accent = new TypedValue();
+    context.getTheme().resolveAttribute(R.attr.quranAccent, accent, true);
+    mSelectedTabColor = accent.data;
     mUnselectedTabColor = ContextCompat.getColor(context, R.color.tab_unselected_color);
 
     mTabStrip = new SlidingTabStrip(context);
-    mTabStrip.setSelectedIndicatorColors(ContextCompat.getColor(context, R.color.indicator_color));
+    mTabStrip.setSelectedIndicatorColors(mSelectedTabColor);
     addView(mTabStrip, LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT);
   }
 

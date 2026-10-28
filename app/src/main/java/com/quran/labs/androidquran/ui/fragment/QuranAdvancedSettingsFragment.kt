@@ -16,6 +16,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.annotation.StringRes
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -50,11 +51,39 @@ import io.reactivex.rxjava3.observers.DisposableSingleObserver
 import io.reactivex.rxjava3.schedulers.Schedulers
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
 
 class QuranAdvancedSettingsFragment : PreferenceFragmentCompat() {
+  @Inject lateinit var assetImporter: com.quran.labs.androidquran.util.AssetFolderImporter
+  @Inject lateinit var translationManager: com.quran.labs.androidquran.presenter.translation.TranslationManagerPresenter
+  private val chooseAssetFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+    if (uri != null) lifecycle.coroutineScope.launch {
+      val preference = findPreference<Preference>("revelation_import_assets")
+      preference?.isEnabled = false
+      preference?.setSummary(R.string.import_assets_working)
+      try {
+        val result = assetImporter.importFolder(uri)
+        // Register copied translation databases using the normal catalogue and version checks.
+        try {
+          kotlinx.coroutines.withTimeout(20_000) { translationManager.getTranslations(false).first() }
+        } catch (exception: Exception) {
+          if (exception is kotlinx.coroutines.CancellationException &&
+            exception !is kotlinx.coroutines.TimeoutCancellationException) throw exception
+          Timber.w(exception, "Translation catalogue refresh deferred")
+        }
+        preference?.summary = getString(R.string.import_assets_result, result.copied, result.skipped)
+      } catch (exception: Exception) {
+        if (exception is kotlinx.coroutines.CancellationException) throw exception
+        Timber.w(exception, "Asset folder import failed")
+        preference?.setSummary(R.string.import_assets_error)
+      } finally {
+        preference?.isEnabled = true
+      }
+    }
+  }
   private lateinit var listStoragePref: DataListPreference
   private lateinit var storageList: List<StorageUtils.Storage>
   private lateinit var appContext: Context
@@ -82,6 +111,31 @@ class QuranAdvancedSettingsFragment : PreferenceFragmentCompat() {
 
     // field injection
     (appContext as QuranApplication).applicationComponent.inject(this)
+
+    val assetImport = Preference(context).apply {
+      key = "revelation_import_assets"
+      setTitle(R.string.import_assets_title)
+      setSummary(R.string.import_assets_summary)
+      isIconSpaceReserved = false
+      setOnPreferenceClickListener {
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(context).setTitle(R.string.import_assets_title)
+          .setMessage(R.string.import_assets_help)
+          .setPositiveButton(R.string.import_assets_choose) { _, _ -> chooseAssetFolder.launch(null) }
+          .setNegativeButton(com.quran.mobile.common.ui.core.R.string.cancel, null).show()
+        true
+      }
+    }
+    preferenceScreen.addPreference(assetImport)
+    val originalInstalled = try {
+      context.packageManager.getPackageInfo("com.quran.labs.androidquran", 0)
+      true
+    } catch (_: android.content.pm.PackageManager.NameNotFoundException) { false }
+    preferenceScreen.addPreference(Preference(context).apply {
+      setTitle(R.string.original_app_title)
+      setSummary(if (originalInstalled) R.string.original_app_detected else R.string.original_app_absent)
+      isSelectable = false
+      isIconSpaceReserved = false
+    })
 
     val logsPref = findPreference<Preference>(Constants.PREF_LOGS)
     if (BuildConfig.DEBUG || "beta" == BuildConfig.BUILD_TYPE) {

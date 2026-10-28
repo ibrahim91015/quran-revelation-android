@@ -77,6 +77,25 @@ class QuranSettingsFragment : PreferenceFragmentCompat() {
       ThemeUtil.setTheme(newValue as String)
       true
     }
+    val accent = androidx.preference.ListPreference(requireContext()).apply {
+      key = "revelation_accent"
+      title = getString(R.string.accent_color)
+      dialogTitle = title
+      isIconSpaceReserved = false
+      entries = resources.getStringArray(R.array.accent_names)
+      entryValues = arrayOf("blue", "emerald", "violet", "amber")
+      setDefaultValue("blue")
+      summaryProvider = androidx.preference.ListPreference.SimpleSummaryProvider.getInstance()
+      setOnPreferenceChangeListener { _, value ->
+        androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext())
+          .edit().putString(key, value as String).apply()
+        com.quran.labs.androidquran.common.ui.core.QuranAccent.current =
+          com.quran.labs.androidquran.AccentActivityCallbacks.selectedAccent(requireContext())
+        requireActivity().recreate()
+        true
+      }
+    }
+    findPreference<PreferenceGroup>(getString(R.string.prefs_display_category_key))?.addPreference(accent)
     updatePageThemeSummary()
 
     // handle translation manager click
@@ -87,6 +106,14 @@ class QuranSettingsFragment : PreferenceFragmentCompat() {
     }
 
     // handle audio manager click
+    val sajdahCue = androidx.preference.SwitchPreferenceCompat(requireContext()).apply {
+      key = "revelation_sajdah_cue"
+      title = getString(R.string.sajdah_cue_title)
+      summary = getString(R.string.sajdah_cue_summary)
+      setDefaultValue(true)
+      isIconSpaceReserved = false
+    }
+    findPreference<PreferenceGroup>(getString(R.string.prefs_download_category_key))?.addPreference(sajdahCue)
     val audioManagerPref: Preference? = findPreference(Constants.PREF_AUDIO_MANAGER)
     audioManagerPref?.setOnPreferenceClickListener {
       startActivity(Intent(activity, AudioManagerActivity::class.java))
@@ -162,6 +189,22 @@ class QuranSettingsFragment : PreferenceFragmentCompat() {
     }
 
     return super.onPreferenceTreeClick(preference)
+  }
+
+  override fun onDisplayPreferenceDialog(preference: Preference) {
+    if (preference.key == "revelation_accent" && preference is androidx.preference.ListPreference) {
+      com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+        .setTitle(preference.dialogTitle)
+        .setSingleChoiceItems(preference.entries, preference.findIndexOfValue(preference.value)) { dialog, index ->
+          val value = preference.entryValues[index].toString()
+          if (preference.callChangeListener(value)) preference.value = value
+          dialog.dismiss()
+        }
+        .setNegativeButton(com.quran.mobile.common.ui.core.R.string.cancel, null)
+        .show()
+    } else {
+      super.onDisplayPreferenceDialog(preference)
+    }
   }
 
   private fun updatePageThemeSummary() {

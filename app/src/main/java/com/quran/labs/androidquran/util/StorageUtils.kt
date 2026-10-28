@@ -49,7 +49,7 @@ object StorageUtils {
      */
     val result: MutableList<Storage> = ArrayList()
     val limit = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) 1 else 2
-    val mountPoints: Array<File> = ContextCompat.getExternalFilesDirs(context, null)
+    val mountPoints = ContextCompat.getExternalFilesDirs(context, null).filterNotNull()
     if (mountPoints.size >= limit) {
 
       // internal files dir
