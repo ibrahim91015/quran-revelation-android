@@ -1,6 +1,6 @@
 package com.quran.labs.androidquran.service
 
-import android.Manifest
+import android.annotation.SuppressLint
 import android.app.ForegroundServiceStartNotAllowedException
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -8,7 +8,6 @@ import android.app.Service
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
@@ -1158,26 +1157,23 @@ class AudioService : Service(), Player.Listener {
   }
 
   /** Updates the notification.  */
+  // Both builders use MediaStyle with mediaSession's token. Media-session
+  // notifications are exempt from POST_NOTIFICATIONS on Android 13+:
+  // https://developer.android.com/develop/ui/views/notifications/notification-permission#exemptions
+  @SuppressLint("NotificationPermission")
   private fun updateNotification() {
     notificationBuilder?.setContentText(getTitle())
     if (!didSetNotificationIconOnNotificationBuilder && notificationIcon != null) {
       notificationBuilder?.setLargeIcon(notificationIcon)
       didSetNotificationIconOnNotificationBuilder = true
     }
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-      ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
-      PackageManager.PERMISSION_GRANTED) {
-      notificationManager.notify(NOTIFICATION_ID, notificationBuilder?.build())
-    }
+    notificationManager.notify(NOTIFICATION_ID, notificationBuilder?.build())
   }
 
+  @SuppressLint("NotificationPermission") // Same MediaStyle exemption as updateNotification.
   private fun pauseNotification() {
     val builder = getPausedNotificationBuilder()
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-      ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
-      PackageManager.PERMISSION_GRANTED) {
-      notificationManager.notify(NOTIFICATION_ID, builder.build())
-    }
+    notificationManager.notify(NOTIFICATION_ID, builder.build())
   }
 
   /**
