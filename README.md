@@ -44,7 +44,7 @@ Downloaded audio is preferred. Revelation sessions stream missing files as neede
 
 The [latest validation report](https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v0.0.3) covers playback, tab state and gestures, background/notification navigation, audio handoffs, and the existing touch/import/theme/coexistence checks.
 
-The preceding revelation.2 release passed **593 Linux regressions**, **7 Android 16 device tests**, **336 live endpoint checks**, and release lint with **zero errors**. Each release includes its own final results and platform limitations.
+Version **0.0.3** passed **606 Linux regression tests**, **10 Android 16 device tests**, **336 live endpoint checks**, and release lint with **zero errors**. The release includes the results, checksums, and platform limitations.
 
 The first release established this baseline:
 
