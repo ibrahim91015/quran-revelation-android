@@ -2,6 +2,7 @@ package com.quran.mobile.feature.sync
 
 import android.content.Context
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.quran.data.di.AppScope
 import com.quran.mobile.di.qualifier.ApplicationContext
 import com.quran.shared.auth.di.AuthFlowFactoryProvider
@@ -157,10 +158,10 @@ class QuranSyncManager(
   }
 
   /**
-   * Starts the OAuth login flow and triggers an initial sync after a successful token exchange.
+   * Starts the OAuth login flow. mobile-sync handles the initial sync after sign-in.
    *
-   * The sync settings screen is an explicit account action, so force provider-side
-   * reauthentication to avoid silently reusing a previous Quran.com browser session after logout.
+   * mobile-sync's login always forces provider-side reauthentication (`prompt=login`), so signing in
+   * after a logout never silently reuses a previous Quran.com browser session.
    *
    * The browser redirect continuation is owned by this app-scoped manager rather than the calling
    * UI coroutine, so Activity recreation while the browser is open does not strand the pending login.
@@ -168,8 +169,7 @@ class QuranSyncManager(
   suspend fun login() {
     runAuthAction {
       if (!isConfigured || codeAuthFlowFactory == null) return@runAuthAction
-      graph.authService.loginWithReauthentication()
-      graph.quranDataService.triggerSync()
+      graph.authService.login()
     }
   }
 
@@ -214,6 +214,14 @@ class QuranSyncManager(
    */
   fun triggerSync() {
     graph.quranDataService.triggerSync(immediately = true)
+  }
+
+  fun startForegroundSync() {
+    if (isConfigured) {
+      ProcessLifecycleOwner.get().lifecycle.addObserver(
+        ForegroundSync(graph.quranDataService::syncOnForeground)
+      )
+    }
   }
 
   private suspend fun runAuthAction(action: suspend () -> Unit) {
