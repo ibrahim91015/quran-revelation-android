@@ -12,8 +12,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.net.Uri
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
@@ -69,7 +67,10 @@ import com.quran.labs.androidquran.dao.audio.SuraTimings
 import com.quran.labs.androidquran.data.Constants
 import com.quran.labs.androidquran.data.QuranDisplayData
 import com.quran.labs.androidquran.data.QuranFileConstants
+import com.quran.labs.androidquran.sajdah.SajdahAlerts
+import com.quran.labs.androidquran.sajdah.SajdahPause
 import com.quran.labs.androidquran.data.SajdahLocations
+import com.quran.data.model.SuraAyah
 import com.quran.labs.androidquran.data.TimingRepository
 import com.quran.labs.androidquran.extension.requiresBasmallah
 import com.quran.labs.androidquran.presenter.audio.service.AudioQueue
@@ -99,6 +100,9 @@ import kotlin.math.abs
  * the service to perform specific operations: Play, Pause, Rewind, Skip, etc.
  */
 class AudioService : Service(), Player.Listener {
+  private lateinit var sajdahAlerts: SajdahAlerts
+  private var completedSajdahBeforePause: SuraAyah? = null
+  private var sajdahResume: Runnable? = null
 
   // our exo player
   private var player: ExoPlayer? = null
@@ -298,6 +302,7 @@ class AudioService : Service(), Player.Listener {
     (appContext as QuranApplication).applicationComponent.inject(this)
     notificationManager =
       appContext.getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+    sajdahAlerts = SajdahAlerts(this, serviceHandler, quranDisplayData)
 
 
     val receiver = ComponentName(this, MediaButtonReceiver::class.java)
@@ -382,6 +387,9 @@ class AudioService : Service(), Player.Listener {
     } else if (ACTION_PLAYBACK == action) {
       val updatedAudioRequest = intent.getParcelableExtra<AudioRequest>(EXTRA_PLAY_INFO)
       if (updatedAudioRequest != null) {
+        cancelSajdahResume()
+        completedSajdahBeforePause = null
+        sajdahAlerts.clear()
         audioStatusRepository.newSession()
         audioRequest = updatedAudioRequest
         val start = updatedAudioRequest.start
@@ -474,12 +482,19 @@ class AudioService : Service(), Player.Listener {
         )
       }
 
-      val updatedAyah = if (currentAyahTime > pos) {
+      var updatedAyah = if (currentAyahTime > pos) {
         // the ayah is ahead of the current playback time, so search backwards
         (1 until ayah).findLast { gaplessSuraData.ayahTimings[it] <= pos } ?: 1
       } else {
         // the audio position is after this ayah, find out which ayah we're at
         ((ayah + 1)..maxAyahs).find { gaplessSuraData.ayahTimings[it] > pos }?.minus(1) ?: maxAyahs
+      }
+
+      if (updatedAyah > ayah && SajdahPause.durationMillis(this) != 0L) {
+        // If polling crossed several short ayahs, observe a sajdah before
+        // advancing beyond it. Resume will seek to the following ayah's start.
+        updatedAyah = ((ayah + 1) until updatedAyah)
+          .firstOrNull { SajdahLocations.contains(sura, it) } ?: updatedAyah
       }
 
       if (DEBUG_TIMINGS) {
@@ -495,6 +510,14 @@ class AudioService : Service(), Player.Listener {
           // shouldn't change ayahs if the delta is just 150ms...
           serviceHandler.sendEmptyMessageDelayed(MSG_UPDATE_AUDIO_POS, 150)
           return
+        }
+        if (updatedAyah > ayah) {
+          for (completedAyah in ayah until updatedAyah) {
+            if (onNaturalAyahCompleted(SuraAyah(sura, completedAyah))) {
+              localPlayer.seekTo(gaplessSuraData.ayahTimings[completedAyah + 1])
+              return
+            }
+          }
         }
         val success = localAudioQueue.playAt(sura, updatedAyah, false)
         val nextSura = localAudioQueue.getCurrentSura()
@@ -524,7 +547,6 @@ class AudioService : Service(), Player.Listener {
           return
         }
 
-        if (updatedAyah > ayah) playSajdahCue(sura, ayah)
         // moved on to next ayah
         updateNotification()
       }
@@ -601,6 +623,7 @@ class AudioService : Service(), Player.Listener {
   }
 
   private fun processPlayRequest() {
+    cancelSajdahResume()
     audioStatusRepository.clearPauseReason()
     val localAudioRequest = audioRequest
     val localAudioQueue = audioQueue
@@ -629,9 +652,12 @@ class AudioService : Service(), Player.Listener {
     }
   }
 
-  private fun processPauseRequest(forBrowsing: Boolean = false) {
-    if (forBrowsing && state == State.Paused) return
+  private fun processPauseRequest(forBrowsing: Boolean = false, forSajdah: Boolean = false) {
+    val wasSajdahPause = audioStatusRepository.pausedForSajdah
+    cancelSajdahResume()
+    if (forBrowsing && state == State.Paused && !wasSajdahPause) return
     audioStatusRepository.markPause(forBrowsing)
+    if (forSajdah) audioStatusRepository.markSajdahPause()
     if (State.Playing == state || State.Preparing == state) {
       // Keep the session and foreground notification available for resume.
       state = State.Paused
@@ -653,6 +679,9 @@ class AudioService : Service(), Player.Listener {
   }
 
   private fun processRewindRequest() {
+    cancelSajdahResume()
+    completedSajdahBeforePause = null
+    sajdahAlerts.clear()
     if (State.Playing == state || State.Paused == state) {
       audioStatusRepository.clearPauseReason()
       setState(PlaybackStateCompat.STATE_REWINDING)
@@ -696,6 +725,9 @@ class AudioService : Service(), Player.Listener {
   }
 
   private fun processSkipRequest() {
+    cancelSajdahResume()
+    completedSajdahBeforePause = null
+    sajdahAlerts.clear()
     if (audioRequest == null) {
       return
     }
@@ -729,6 +761,9 @@ class AudioService : Service(), Player.Listener {
   }
 
   private fun processStopRequest(force: Boolean = false) {
+    cancelSajdahResume()
+    completedSajdahBeforePause = null
+    sajdahAlerts.clear()
     setState(PlaybackStateCompat.STATE_STOPPED)
     serviceHandler.removeMessages(MSG_UPDATE_AUDIO_POS)
     currentWord = null
@@ -1123,17 +1158,30 @@ class AudioService : Service(), Player.Listener {
     }
   }
 
-  private fun playSajdahCue(sura: Int, ayah: Int) {
-    if (!SajdahLocations.contains(sura, ayah) ||
-      !androidx.preference.PreferenceManager.getDefaultSharedPreferences(this)
-        .getBoolean("revelation_sajdah_cue", true)) return
-    try {
-      val tone = ToneGenerator(AudioManager.STREAM_MUSIC, 45)
-      tone.startTone(ToneGenerator.TONE_PROP_ACK, 180)
-      serviceHandler.postDelayed({ tone.release() }, 250)
-    } catch (exception: RuntimeException) {
-      Timber.w(exception, "Unable to play sajdah cue")
+  private fun cancelSajdahResume() {
+    sajdahResume?.let { serviceHandler.removeCallbacks(it) }
+    sajdahResume = null
+    audioStatusRepository.clearSajdahPause()
+  }
+
+  /** A file/verse remains at its completed position until the user/timer resumes. */
+  private fun onNaturalAyahCompleted(ayah: SuraAyah): Boolean {
+    if (completedSajdahBeforePause == ayah) {
+      completedSajdahBeforePause = null
+      return false
     }
+    sajdahAlerts.completed(ayah, notificationPendingIntent)
+    if (!SajdahLocations.contains(ayah.sura, ayah.ayah)) return false
+    val duration = SajdahPause.durationMillis(this)
+    if (duration == 0L) return false
+    completedSajdahBeforePause = ayah
+    processPauseRequest(forSajdah = true)
+    if (duration != null) {
+      sajdahResume = Runnable {
+        if (state == State.Paused && audioStatusRepository.pausedForSajdah) processPlayRequest()
+      }.also { serviceHandler.postDelayed(it, duration) }
+    }
+    return true
   }
 
   private fun onPlayerCompleted() {
@@ -1147,9 +1195,9 @@ class AudioService : Service(), Player.Listener {
       val localAudioQueue = audioQueue ?: return
       val localAudioRequest = audioRequest ?: return
       val beforeSura = localAudioQueue.getCurrentSura()
-      playSajdahCue(beforeSura, if (localAudioRequest.isGapless()) {
+      if (onNaturalAyahCompleted(SuraAyah(beforeSura, if (localAudioRequest.isGapless()) {
         quranInfo.getNumberOfAyahs(beforeSura)
-      } else localAudioQueue.getCurrentAyah())
+      } else localAudioQueue.getCurrentAyah()))) return
       if (localAudioQueue.playAfterFile()) {
         if (localAudioRequest.isGapless() && beforeSura == localAudioQueue.getCurrentSura()
         ) {
@@ -1420,6 +1468,8 @@ class AudioService : Service(), Player.Listener {
   }
 
   override fun onDestroy() {
+    cancelSajdahResume()
+    sajdahAlerts.close()
     compositeDisposable.clear()
     // Service is being killed, so make sure we release our resources
     serviceHandler.removeCallbacksAndMessages(null)

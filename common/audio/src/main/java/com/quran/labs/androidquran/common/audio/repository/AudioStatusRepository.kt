@@ -13,9 +13,13 @@ class AudioStatusRepository @Inject constructor() {
     private set
   @Volatile var sessionGeneration: Long = 0
     private set
+  @Volatile var pausedForSajdah: Boolean = false
+    private set
 
-  fun markPause(forBrowsing: Boolean) { pausedForBrowsing = forBrowsing }
-  fun clearPauseReason() { pausedForBrowsing = false }
+  fun markPause(forBrowsing: Boolean) { pausedForBrowsing = forBrowsing; pausedForSajdah = false }
+  fun markSajdahPause() { pausedForSajdah = true; pausedForBrowsing = false }
+  fun clearSajdahPause() { pausedForSajdah = false }
+  fun clearPauseReason() { pausedForBrowsing = false; pausedForSajdah = false }
   fun newSession() { sessionGeneration++; clearPauseReason() }
 
   fun shouldWarnBeforeReplacement(alwaysWarn: Boolean): Boolean {

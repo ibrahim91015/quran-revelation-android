@@ -29,6 +29,8 @@ jobs:
         run: ./gradlew :app:lintMadaniRelease -PdisableFirebase --max-workers=4
       - name: Tanzil and reciter endpoint checks
         run: python3 tools/verify_revelation_sources.py
+      - name: Bundled sajdah chime validation
+        run: python3 tools/verify_sajdah_chimes.py
       - uses: actions/upload-artifact@v7
         if: always()
         with:

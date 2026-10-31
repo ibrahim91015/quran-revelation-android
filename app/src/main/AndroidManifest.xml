@@ -70,6 +70,8 @@
         android:exported="false"/>
     <activity
         android:name=".ui.QuranActivity"
+        android:supportsPictureInPicture="true"
+        android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden"
         android:theme="@style/QuranToolBarDayNight"
         android:exported="false"/>
     <activity
@@ -81,6 +83,8 @@
         android:exported="false"/>
     <activity
         android:name=".ui.PagerActivity"
+        android:supportsPictureInPicture="true"
+        android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|keyboardHidden"
         android:launchMode="singleTop"
         android:theme="@style/QuranToolBar.Overlay"
         android:exported="false"/>

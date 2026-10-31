@@ -32,6 +32,7 @@ import com.quran.mobile.feature.pagetheme.pageThemeSummary
 import dev.zacsweers.metro.Inject
 
 class QuranSettingsFragment : PreferenceFragmentCompat() {
+  private var sajdahSettings: com.quran.labs.androidquran.sajdah.SajdahSettings? = null
 
   @Inject
   lateinit var pageTypes: Map<@JvmSuppressWildcards String, @JvmSuppressWildcards PageProvider>
@@ -106,14 +107,20 @@ class QuranSettingsFragment : PreferenceFragmentCompat() {
     }
 
     // handle audio manager click
-    val sajdahCue = androidx.preference.SwitchPreferenceCompat(requireContext()).apply {
-      key = "revelation_sajdah_cue"
-      title = getString(R.string.sajdah_cue_title)
-      summary = getString(R.string.sajdah_cue_summary)
-      setDefaultValue(true)
-      isIconSpaceReserved = false
+    findPreference<PreferenceGroup>(getString(R.string.prefs_download_category_key))?.let {
+      sajdahSettings = com.quran.labs.androidquran.sajdah.SajdahSettings(this).also { settings -> settings.addTo(it) }
     }
-    findPreference<PreferenceGroup>(getString(R.string.prefs_download_category_key))?.addPreference(sajdahCue)
+    val pip = androidx.preference.SwitchPreferenceCompat(requireContext()).apply {
+      key = com.quran.labs.androidquran.pip.TranslationPipController.PREFERENCE
+      title = getString(R.string.translation_pip_title)
+      summary = getString(R.string.translation_pip_summary)
+      setDefaultValue(false)
+      isIconSpaceReserved = false
+      isEnabled = android.os.Build.VERSION.SDK_INT >= 26 && requireContext().packageManager
+        .hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)
+      if (!isEnabled) summary = getString(R.string.translation_pip_unsupported)
+    }
+    findPreference<PreferenceGroup>(getString(R.string.prefs_display_category_key))?.addPreference(pip)
     val warn = androidx.preference.SwitchPreferenceCompat(requireContext()).apply {
       key = "revelation_warn_manual_pause"
       title = getString(R.string.warn_manual_pause_title)
@@ -160,6 +167,12 @@ class QuranSettingsFragment : PreferenceFragmentCompat() {
       windowInsets
     }
     return view
+  }
+
+  override fun onDestroyView() {
+    sajdahSettings?.close()
+    sajdahSettings = null
+    super.onDestroyView()
   }
 
   override fun onPreferenceTreeClick(preference: Preference): Boolean {

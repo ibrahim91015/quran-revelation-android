@@ -6,8 +6,8 @@
   <string name="now_playing_description">%1$s · %2$s\n%3$s</string>
   <string name="audio_paused_label">متوقف مؤقتًا</string>
   <string name="audio_playing_label">يُتلى الآن</string>
-  <string name="sajdah_cue_title">تنبيه السجدة</string>
-  <string name="sajdah_cue_summary">إصدار نغمة لطيفة بعد انتهاء آية السجدة، بمستوى صوت الوسائط.</string>
+  <string name="sajdah_cue_title">صوت وتنبيه السجدة</string>
+  <string name="sajdah_cue_summary">تشغيل نغمتك وإظهار تنبيه بعد آية السجدة. يستخدم صوت الوسائط حتى في وضع الاهتزاز.</string>
   <string name="audio_order_revelation">ترتيب النزول</string>
   <string name="audio_order_standard">ترتيب المصحف</string>
   <string name="audio_notification_details">%1$s · %2$s</string>

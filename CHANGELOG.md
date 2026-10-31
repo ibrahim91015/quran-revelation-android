@@ -2,6 +2,16 @@
 
 This file tracks changes specific to **Quran Revelation for Android**. The original application’s development history is available in [upstream Quran for Android](https://github.com/quran/quran_android).
 
+## [0.0.4] — 2026-10-31
+
+- Replace the short sajdah beep with six original offline chimes, previews, a saved sound choice, and independent media-relative gain.
+- Add a high-importance silent sajdah notification that expires after the following recited ayah, including across revelation-order surahs.
+- Add pause-after-sajdah options: Off, 2 seconds (default), 5 seconds, Until I resume, and Custom 0–60 seconds. Explicit pause/stop/browsing cancels timed resume.
+- Add opt-in beta translation-only Android PiP, first-priority translation selection and complete-text fitting; dismissing PiP keeps audio playing.
+- Merge 17 upstream commits through `6a999e5dc`: bookmark mapping/import, account/sync UI/lifecycle and dependency updates, preserving fork identity and features.
+
+See the [release notes](docs/releases/v0.0.4.md) and [upstream review](docs/upstream/2026-10-31.md).
+
 ## [0.0.3] — 2026-10-28
 
 - Adopt independent `v0.0.x` release versions; retain a higher Android version code for in-place upgrades.

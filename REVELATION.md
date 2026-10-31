@@ -1,17 +1,17 @@
 # Quran Revelation for Android
 
 An independent GPL-3.0 fork of [Quran for Android](https://github.com/quran/quran_android),
-based on upstream `main` at `cd6a99ed096ea1ec8dc1b1f99364244b05001bdd`.
-The standalone release is `0.0.3`, targeting Android 16 (API 36).
+based on upstream `main` through `6a999e5dc` ([integration review](docs/upstream/2026-10-31.md)).
+The standalone release is `0.0.4`, targeting Android 16 (API 36).
 
 For the project overview and comparison with the original, see [README.md](README.md).
-See the [release notes](docs/releases/v0.0.3.md) for shipped changes
+See the [release notes](docs/releases/v0.0.4.md) for shipped changes
 and [ROADMAP.md](ROADMAP.md) for proposed improvements. This guide covers installation,
 audio behavior, and developer verification.
 
 ## Install
 
-Download the signed `Quran-Revelation-0.0.3.apk` from this fork's latest
+Download the signed `Quran-Revelation-0.0.4.apk` from this fork's latest
 [GitHub release](https://github.com/ibrahim91015/quran-revelation-android/releases/latest). Its application ID is `com.ibrahim91015.quran.revelation`, so it can
 be installed alongside the original Quran.com application. It uses separate app
 storage, provider authorities, launcher shortcuts, and a dedicated signing key.
@@ -68,6 +68,7 @@ and Android SDK 37 for compilation. The app targets API 36 and supports API 24+.
 ./gradlew testMadaniDebug testReleaseUnitTest verifySqlDelightMigration -PdisableFirebase
 ./gradlew :app:lintMadaniRelease -PdisableFirebase
 python3 tools/verify_revelation_sources.py
+python3 tools/verify_sajdah_chimes.py
 ```
 
 Run the complete regression suite on Linux, as the included GitHub workflow does.

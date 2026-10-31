@@ -27,6 +27,7 @@ open class QuranApplication : Application(), QuranApplicationComponentProvider, 
   @Inject lateinit var quranSettings: QuranSettings
   @Inject lateinit var audioStatus: com.quran.labs.androidquran.common.audio.repository.AudioStatusRepository
   @Inject lateinit var quranInfo: com.quran.data.core.QuranInfo
+  @Inject lateinit var pipTranslations: com.quran.labs.androidquran.pip.PipTranslationRepository
   val homeIndexState by lazy { com.quran.labs.androidquran.ui.helpers.HomeIndexState(this) }
   val foregroundAudioRouter by lazy { ForegroundAudioRouter(this) }
   @Inject lateinit var quranSyncManager: QuranSyncManager
@@ -40,6 +41,7 @@ open class QuranApplication : Application(), QuranApplicationComponentProvider, 
     setupTimber()
     applicationComponent = initializeInjector()
     applicationComponent.inject(this)
+    com.quran.labs.androidquran.sajdah.SajdahAlerts.createChannel(this)
     quranSyncManager.startForegroundSync()
     initializeWorkManager()
     bookmarksWidgetSubscriber.subscribeBookmarksWidgetIfNecessary()

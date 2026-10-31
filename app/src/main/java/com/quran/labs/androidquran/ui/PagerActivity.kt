@@ -296,11 +296,34 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
   private var audioSourceTab = "surahs"
   private var browsingOtherLocation = false
   private var pendingAudioRequest: AudioRequest? = null
+  private var translationPip: com.quran.labs.androidquran.pip.TranslationPipController? = null
   private var replacementDialog: AlertDialog? = null
 
   override fun onUserLeaveHint() {
     super.onUserLeaveHint()
+    translationPip?.onUserLeave()
     (application as QuranApplication).foregroundAudioRouter.onUserLeaving()
+  }
+
+  override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
+    if (intent.resolveActivity(packageManager)?.packageName == packageName) translationPip?.internalNavigation()
+    super.startActivityForResult(intent, requestCode, options)
+  }
+
+  override fun onPictureInPictureModeChanged(inPip: Boolean, newConfig: android.content.res.Configuration) {
+    super.onPictureInPictureModeChanged(inPip, newConfig)
+    translationPip?.modeChanged(inPip)
+  }
+
+  override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+    super.onConfigurationChanged(newConfig)
+    if (!isFinishing && translationPip?.isPresenting != true &&
+      (android.os.Build.VERSION.SDK_INT < 26 || !isInPictureInPictureMode)) recreate()
+  }
+
+  override fun onPictureInPictureUiStateChanged(state: android.app.PictureInPictureUiState) {
+    super.onPictureInPictureUiStateChanged(state)
+    if (android.os.Build.VERSION.SDK_INT >= 35 && state.isTransitioningToPip) translationPip?.transitioningToPip()
   }
 
   private fun setBrowsingOtherLocation(value: Boolean) {
@@ -352,6 +375,7 @@ class PagerActivity : AppCompatActivity(), AudioBarListener, OnBookmarkTagsUpdat
     }
 
     setContentView(R.layout.quran_page_activity_slider)
+    translationPip = com.quran.labs.androidquran.pip.TranslationPipController(this)
 
     val lightStatusBar = resources.getBoolean(R.bool.light_navigation_bar)
     windowInsetsController = WindowInsetsControllerCompat(

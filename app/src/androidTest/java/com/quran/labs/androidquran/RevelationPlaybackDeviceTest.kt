@@ -167,6 +167,12 @@ class RevelationPlaybackDeviceTest {
       .putBoolean("revelation_warn_manual_pause",false).commit()
   }
 
+  private fun waitUntil(message: String, timeout: Long = 15_000, test: () -> Boolean) {
+    val deadline = SystemClock.elapsedRealtime() + timeout
+    while (!test() && SystemClock.elapsedRealtime() < deadline) SystemClock.sleep(50)
+    assertTrue(message, test())
+  }
+
   private fun withForeground(test: (AudioService) -> Unit) {
     shell("input keyevent KEYCODE_WAKEUP")
     shell("pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS")
@@ -178,6 +184,167 @@ class RevelationPlaybackDeviceTest {
       } finally {
         action(AudioService.ACTION_STOP)
       }
+    }
+  }
+
+  @Test fun sajdahUsesMediaInVibrateAndAlertClearsAfterTheFollowingRevelationAyah() = withForeground { probe ->
+    val preferences = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+    preferences.edit().putString(com.quran.labs.androidquran.sajdah.SajdahPause.MODE,"2")
+      .putBoolean("revelation_sajdah_cue",true).commit()
+    val audio = context.getSystemService(android.media.AudioManager::class.java)
+    val previousRinger = audio.ringerMode
+    val mediaVolume = audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+    instrumentation.uiAutomation.adoptShellPermissionIdentity()
+    try {
+      audio.ringerMode = android.media.AudioManager.RINGER_MODE_VIBRATE
+      assertEquals(android.media.AudioManager.RINGER_MODE_VIBRATE,audio.ringerMode)
+      action(AudioService.ACTION_PLAYBACK,request(0).copy(playbackSpeed=1f))
+      awaitPlaying(probe,96)
+      awaitPaused(probe)
+      assertTrue(probe.audioStatusRepository.pausedForSajdah)
+      val notifications = context.getSystemService(NotificationManager::class.java)
+      val channel = notifications.getNotificationChannel(com.quran.labs.androidquran.sajdah.SajdahAlerts.CHANNEL)
+      assertEquals(NotificationManager.IMPORTANCE_HIGH,channel.importance)
+      assertEquals(null,channel.sound)
+      assertTrue(!channel.shouldVibrate())
+      assertTrue(notifications.activeNotifications.any { it.id == com.quran.labs.androidquran.sajdah.SajdahAlerts.NOTIFICATION })
+      assertEquals(mediaVolume,audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC))
+      awaitPlaying(probe,68)
+      assertTrue(notifications.activeNotifications.any { it.id == com.quran.labs.androidquran.sajdah.SajdahAlerts.NOTIFICATION })
+      awaitPlaying(probe,68,2)
+      waitUntil("Sajdah alert must clear after 68:1 completes") {
+        notifications.activeNotifications.none { it.id == com.quran.labs.androidquran.sajdah.SajdahAlerts.NOTIFICATION }
+      }
+    } finally {
+      audio.ringerMode = previousRinger
+      instrumentation.uiAutomation.dropShellPermissionIdentity()
+    }
+  }
+
+  @Test fun untilIResumeSajdahPauseWaitsAndDoesNotReplayOrSkipTheFollowingSurah() = withForeground { probe ->
+    val preferences = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+    preferences.edit().putString(com.quran.labs.androidquran.sajdah.SajdahPause.MODE,"manual").commit()
+    try {
+      action(AudioService.ACTION_PLAYBACK,request(0))
+      awaitPlaying(probe,96)
+      val paused = awaitPaused(probe)
+      SystemClock.sleep(2200)
+      assertEquals(paused,probe.audioStatusRepository.audioPlaybackFlow.value)
+      action(AudioService.ACTION_PLAY)
+      awaitPlaying(probe,68)
+      assertTrue(!probe.audioStatusRepository.pausedForSajdah)
+    } finally { preferences.edit().remove(com.quran.labs.androidquran.sajdah.SajdahPause.MODE).commit() }
+  }
+
+  @Test fun explicitManualPauseCancelsASajdahResumeTimer() = withForeground { probe ->
+    val preferences = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+    preferences.edit().putString(com.quran.labs.androidquran.sajdah.SajdahPause.MODE,"custom")
+      .putInt(com.quran.labs.androidquran.sajdah.SajdahPause.CUSTOM_SECONDS,1).commit()
+    try {
+      action(AudioService.ACTION_PLAYBACK,request(0))
+      awaitPlaying(probe,96)
+      awaitPaused(probe)
+      action(AudioService.ACTION_PAUSE)
+      waitUntil("Manual pause must cancel the timer") { !probe.audioStatusRepository.pausedForSajdah }
+      SystemClock.sleep(1500)
+      assertEquals(PlaybackStatus.PAUSED,(probe.audioStatusRepository.audioPlaybackFlow.value as AudioStatus.Playback).playbackStatus)
+      action(AudioService.ACTION_PLAY)
+      awaitPlaying(probe,68)
+    } finally { preferences.edit().remove(com.quran.labs.androidquran.sajdah.SajdahPause.MODE).commit() }
+  }
+
+  @Test fun browsingElsewhereCancelsATimedSajdahResumeAndProtectsTheOldSession() = withForeground { probe ->
+    val preferences = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+    preferences.edit().putString(com.quran.labs.androidquran.sajdah.SajdahPause.MODE,"custom")
+      .putInt(com.quran.labs.androidquran.sajdah.SajdahPause.CUSTOM_SECONDS,2).commit()
+    try {
+      action(AudioService.ACTION_PLAYBACK,request(0))
+      awaitPlaying(probe,96)
+      awaitPaused(probe)
+      ActivityScenario.launch(QuranActivity::class.java).use { picker ->
+        picker.onActivity { it.jumpTo(com.quran.labs.androidquran.ui.helpers.QuranRow.Builder().withSura(1).withPage(1).build()) }
+        waitUntil("Browsing must protect the sajdah-paused session") { probe.audioStatusRepository.pausedForBrowsing }
+        SystemClock.sleep(2500)
+        assertEquals(PlaybackStatus.PAUSED,(probe.audioStatusRepository.audioPlaybackFlow.value as AudioStatus.Playback).playbackStatus)
+        val opened = reader()
+        instrumentation.runOnMainSync { opened.finish() }
+      }
+    } finally { preferences.edit().remove(com.quran.labs.androidquran.sajdah.SajdahPause.MODE).commit() }
+  }
+
+  @Test fun translationPipFollowsFirstPriorityAndClosingItLeavesAudioPlaying() = withForeground { probe ->
+    val app = context.applicationContext as QuranApplication
+    val provider = com.quran.labs.androidquran.data.QuranDataProvider()
+    app.applicationComponent.inject(provider)
+    val preferences = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+    val savedTranslations = preferences.getStringSet(com.quran.labs.androidquran.data.Constants.PREF_ACTIVE_TRANSLATIONS,emptySet())
+    val names = listOf("pip-device-secondary.db","pip-device-primary.db")
+    val directory = provider.quranFileUtils.getQuranDatabaseDirectory().apply { mkdirs() }
+    try {
+      val items = names.mapIndexed { index, name ->
+        com.quran.labs.androidquran.database.DatabaseHandler.clearDatabaseHandlerIfExists(name)
+        val file = File(directory,name)
+        file.delete()
+        SQLiteDatabase.openOrCreateDatabase(file,null).use { db ->
+          db.execSQL("CREATE TABLE verses (_id INTEGER PRIMARY KEY,sura INTEGER,ayah INTEGER,text TEXT)")
+          db.execSQL("CREATE TABLE properties (property TEXT,value TEXT)")
+          db.execSQL("INSERT INTO properties VALUES ('schema_version','5')")
+          for (ayah in 1..19) db.execSQL("INSERT INTO verses VALUES (?,?,?,?)",arrayOf<Any>(ayah,96,ayah,
+            if (index==1) "Priority translation for ayah $ayah." else "Secondary translation for ayah $ayah."))
+        }
+        com.quran.labs.androidquran.dao.translation.TranslationItem(
+          com.quran.labs.androidquran.dao.translation.Translation(990001+index,1,1,"PiP test $index","translation",name,"","","en"),1,1-index)
+      }
+      runBlocking { assertTrue(provider.translationsDBAdapter.writeTranslationUpdates(items)) }
+      preferences.edit().putStringSet(com.quran.labs.androidquran.data.Constants.PREF_ACTIVE_TRANSLATIONS,names.toSet())
+        .putBoolean(com.quran.labs.androidquran.pip.TranslationPipController.PREFERENCE,true).commit()
+      runBlocking { assertEquals("Priority translation for ayah 1.",app.pipTranslations.load(SuraAyah(96,1))) }
+      action(AudioService.ACTION_PLAYBACK,request(0).copy(start=SuraAyah(96,1),playbackSpeed=1f))
+      awaitPlaying(probe,96)
+      ActivityScenario.launch(QuranActivity::class.java).use { picker ->
+        lateinit var host: QuranActivity
+        picker.onActivity { host=it }
+        SystemClock.sleep(1000)
+        shell("input keyevent KEYCODE_HOME")
+        waitUntil("The beta setting should enter native PiP") {
+          var pip=false
+          instrumentation.runOnMainSync { pip=host.isInPictureInPictureMode }
+          pip
+        }
+        var pipDescription = "No content observed"
+        try { waitUntil("PiP should show only the selected first-priority translation") {
+          var correct=false
+          instrumentation.runOnMainSync {
+            val content = host.findViewById<android.view.ViewGroup>(android.R.id.content)
+            val visible = (0 until content.childCount).map { content.getChildAt(it) }.filter { it.visibility==android.view.View.VISIBLE }
+            val text = visible.singleOrNull() as? com.quran.labs.androidquran.pip.FittingTranslationView
+            pipDescription = "Visible=${visible.map { it.javaClass.simpleName }}, text=${text?.text}, size=${text?.width}x${text?.height}, layout=${text?.layout?.height}, padding=${text?.compoundPaddingTop}/${text?.compoundPaddingBottom}"
+            correct = text?.text?.startsWith("Priority translation for ayah ")==true && text.layout!=null &&
+              text.layout.height<=text.height-text.compoundPaddingTop-text.compoundPaddingBottom
+          }
+          correct
+        } } catch (failure: AssertionError) { throw AssertionError(pipDescription,failure) }
+        awaitPlaying(probe,96,2)
+        waitUntil("PiP should follow the next playing ayah") {
+          var correct=false
+          instrumentation.runOnMainSync {
+            val content=host.findViewById<android.view.ViewGroup>(android.R.id.content)
+            val text=(0 until content.childCount).map { content.getChildAt(it) }
+              .filterIsInstance<com.quran.labs.androidquran.pip.FittingTranslationView>().single()
+            val ayah=(probe.audioStatusRepository.audioPlaybackFlow.value as AudioStatus.Playback).currentAyah.ayah
+            correct=text.text.toString()=="Priority translation for ayah $ayah."
+          }
+          correct
+        }
+        instrumentation.runOnMainSync { host.finishAndRemoveTask() }
+        SystemClock.sleep(750)
+        assertEquals(PlaybackStatus.PLAYING,(probe.audioStatusRepository.audioPlaybackFlow.value as AudioStatus.Playback).playbackStatus)
+      }
+    } finally {
+      preferences.edit().putBoolean(com.quran.labs.androidquran.pip.TranslationPipController.PREFERENCE,false)
+        .putStringSet(com.quran.labs.androidquran.data.Constants.PREF_ACTIVE_TRANSLATIONS,savedTranslations).commit()
+      runBlocking { names.forEach { provider.translationsDBAdapter.deleteTranslationByFileName(it) } }
+      names.forEach { name -> com.quran.labs.androidquran.database.DatabaseHandler.clearDatabaseHandlerIfExists(name); File(directory,name).delete() }
     }
   }
 

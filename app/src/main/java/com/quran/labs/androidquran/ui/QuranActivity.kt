@@ -143,6 +143,7 @@ class QuranActivity : AppCompatActivity(),
   lateinit var extraScreens: Set<@JvmSuppressWildcards ExtraScreenProvider>
 
   private val homeState get() = (application as QuranApplication).homeIndexState
+  private var translationPip: com.quran.labs.androidquran.pip.TranslationPipController? = null
   private lateinit var indexAdapter: PagerAdapter
   private var handleTabEvents = false
   private var displayedOrder = emptyList<HomeTab>()
@@ -162,6 +163,7 @@ class QuranActivity : AppCompatActivity(),
 
     registerBackPressedCallbacks()
     setContentView(R.layout.quran_index)
+    translationPip = com.quran.labs.androidquran.pip.TranslationPipController(this)
     val miniPlayer = findViewById<com.google.android.material.button.MaterialButton>(R.id.now_playing)
     val miniCard = findViewById<View>(R.id.now_playing_card)
     val miniToggle = findViewById<com.google.android.material.button.MaterialButton>(R.id.now_playing_toggle)
@@ -316,7 +318,29 @@ class QuranActivity : AppCompatActivity(),
 
   override fun onUserLeaveHint() {
     super.onUserLeaveHint()
+    translationPip?.onUserLeave()
     (application as QuranApplication).foregroundAudioRouter.onUserLeaving()
+  }
+
+  override fun startActivityForResult(intent: Intent, requestCode: Int, options: Bundle?) {
+    if (intent.resolveActivity(packageManager)?.packageName == packageName) translationPip?.internalNavigation()
+    super.startActivityForResult(intent, requestCode, options)
+  }
+
+  override fun onPictureInPictureModeChanged(inPip: Boolean, newConfig: android.content.res.Configuration) {
+    super.onPictureInPictureModeChanged(inPip, newConfig)
+    translationPip?.modeChanged(inPip)
+  }
+
+  override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+    super.onConfigurationChanged(newConfig)
+    if (!isFinishing && translationPip?.isPresenting != true &&
+      (android.os.Build.VERSION.SDK_INT < 26 || !isInPictureInPictureMode)) recreate()
+  }
+
+  override fun onPictureInPictureUiStateChanged(state: android.app.PictureInPictureUiState) {
+    super.onPictureInPictureUiStateChanged(state)
+    if (android.os.Build.VERSION.SDK_INT >= 35 && state.isTransitioningToPip) translationPip?.transitioningToPip()
   }
 
   override fun onDestroy() {
@@ -566,7 +590,7 @@ class QuranActivity : AppCompatActivity(),
   private fun browseTo(location: com.quran.data.model.JumpLocation, tab: HomeTab,
     bookmark: com.quran.data.model.bookmark.ReadingBookmarkType? = null) {
     val previous = audioStatus.audioPlaybackFlow.value as? AudioStatus.Playback
-    if (previous != null && previous.playbackStatus != PlaybackStatus.PAUSED) {
+    if (previous != null && (previous.playbackStatus != PlaybackStatus.PAUSED || audioStatus.pausedForSajdah)) {
       startService(Intent(this, AudioService::class.java).setAction(AudioService.ACTION_PAUSE_FOR_BROWSING))
     }
     quranNavigator.jumpTo(location, bookmark, settings.wasShowingTranslation,
