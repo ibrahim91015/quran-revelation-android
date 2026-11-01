@@ -33,6 +33,7 @@ import dev.zacsweers.metro.Inject
 
 class QuranSettingsFragment : PreferenceFragmentCompat() {
   private var sajdahSettings: com.quran.labs.androidquran.sajdah.SajdahSettings? = null
+  private var pipAppearance: com.quran.labs.androidquran.pip.PipAppearanceSettings? = null
 
   @Inject
   lateinit var pageTypes: Map<@JvmSuppressWildcards String, @JvmSuppressWildcards PageProvider>
@@ -120,7 +121,10 @@ class QuranSettingsFragment : PreferenceFragmentCompat() {
         .hasSystemFeature(android.content.pm.PackageManager.FEATURE_PICTURE_IN_PICTURE)
       if (!isEnabled) summary = getString(R.string.translation_pip_unsupported)
     }
-    findPreference<PreferenceGroup>(getString(R.string.prefs_display_category_key))?.addPreference(pip)
+    findPreference<PreferenceGroup>(getString(R.string.prefs_display_category_key))?.let { group ->
+      group.addPreference(pip)
+      pipAppearance = com.quran.labs.androidquran.pip.PipAppearanceSettings(this).also { it.addTo(group) }
+    }
     val warn = androidx.preference.SwitchPreferenceCompat(requireContext()).apply {
       key = "revelation_warn_manual_pause"
       title = getString(R.string.warn_manual_pause_title)
@@ -172,6 +176,8 @@ class QuranSettingsFragment : PreferenceFragmentCompat() {
   override fun onDestroyView() {
     sajdahSettings?.close()
     sajdahSettings = null
+    pipAppearance?.close()
+    pipAppearance = null
     super.onDestroyView()
   }
 

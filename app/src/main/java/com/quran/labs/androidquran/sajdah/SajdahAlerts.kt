@@ -34,8 +34,8 @@ class SajdahAlerts(private val context: Context, handler: Handler,
     when (state.completed(ayah)) {
       SajdahAlertState.Change.SHOW -> {
         soundPlayer.play(preferences.sound, preferences.volume)
-        if (Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(context,
-            Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context,
+            Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
           val label = context.getString(R.string.sajdah_notification_ayah,
             displayData.getSuraName(context, ayah.sura, true, false), ayah.ayah)
           val notification = NotificationCompat.Builder(context, CHANNEL)
@@ -49,7 +49,6 @@ class SajdahAlerts(private val context: Context, handler: Handler,
             .setContentIntent(pendingIntent).setAutoCancel(true)
             .build()
           try { manager.notify(NOTIFICATION, notification) } catch (_: SecurityException) { /* permission changed */ }
-        }
       }
       SajdahAlertState.Change.CLEAR -> manager.cancel(NOTIFICATION)
       SajdahAlertState.Change.NONE -> Unit

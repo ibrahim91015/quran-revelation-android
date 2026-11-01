@@ -8,6 +8,7 @@ This file tracks changes specific to **Quran Revelation for Android**. The origi
 - Add a high-importance silent sajdah notification that expires after the following recited ayah, including across revelation-order surahs.
 - Add pause-after-sajdah options: Off, 2 seconds (default), 5 seconds, Until I resume, and Custom 0–60 seconds. Explicit pause/stop/browsing cancels timed resume.
 - Add opt-in beta translation-only Android PiP, first-priority translation selection and complete-text fitting; dismissing PiP keeps audio playing.
+- Add a corner surah:ayah reference, centered/justified PiP appearance controls, preferred maximum text size, app theme/font matching, and long Latin/Arabic text-fit coverage at multiple font scales.
 - Merge 17 upstream commits through `6a999e5dc`: bookmark mapping/import, account/sync UI/lifecycle and dependency updates, preserving fork identity and features.
 
 See the [release notes](docs/releases/v0.0.4.md) and [upstream review](docs/upstream/2026-10-31.md).

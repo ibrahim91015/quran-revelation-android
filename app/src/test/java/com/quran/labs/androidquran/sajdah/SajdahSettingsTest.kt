@@ -70,4 +70,25 @@ class SajdahSettingsTest {
       }
     }
   }
+  @Test fun pipAppearanceDialogKeepsDraftsUntilSaveAndOffersAlignmentAndSize() {
+    rule.scenario.onActivity { activity ->
+      val fragment=fragment(activity)
+      fragment.findPreference<androidx.preference.SwitchPreferenceCompat>(com.quran.labs.androidquran.pip.TranslationPipController.PREFERENCE)!!.apply {
+        isEnabled=true; isChecked=true
+      }
+      fragment.findPreference<Preference>(com.quran.labs.androidquran.pip.PipAppearance.SETTINGS)!!.performClick()
+      val appearance=com.quran.labs.androidquran.pip.PipAppearance(activity)
+      assertThat(slider(dialog().window!!.decorView as ViewGroup)!!.value).isEqualTo(32f)
+      slider(dialog().window!!.decorView as ViewGroup)!!.value=48f
+      dialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick()
+      shadowOf(Looper.getMainLooper()).idle()
+      assertThat(appearance.preferredSizeSp).isEqualTo(32)
+      fragment.findPreference<Preference>(com.quran.labs.androidquran.pip.PipAppearance.SETTINGS)!!.performClick()
+      slider(dialog().window!!.decorView as ViewGroup)!!.value=14f
+      dialog().getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+      shadowOf(Looper.getMainLooper()).idle()
+      assertThat(appearance.preferredSizeSp).isEqualTo(14)
+      assertThat(appearance.centered).isTrue()
+    }
+  }
 }

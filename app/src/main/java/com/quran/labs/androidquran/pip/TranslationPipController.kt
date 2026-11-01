@@ -36,8 +36,9 @@ class TranslationPipController(private val activity: ComponentActivity) : Defaul
   private var contentReady = false
   private var loadingJob: kotlinx.coroutines.Job? = null
   private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-    if (key == PREFERENCE) activity.runOnUiThread { refresh() }
+    if (key == PREFERENCE || key == PipAppearance.ALIGNMENT || key == PipAppearance.TEXT_SIZE) activity.runOnUiThread { refresh() }
   }
+  @get:androidx.annotation.ChecksSdkIntAtLeast(api = 26)
   private val supported get() = Build.VERSION.SDK_INT >= 26 && activity.packageManager
     .hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
   private val enabled get() = supported && preferences.getBoolean(PREFERENCE, false)
@@ -47,6 +48,8 @@ class TranslationPipController(private val activity: ComponentActivity) : Defaul
   init {
     content.addView(translation, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
     activity.lifecycle.addObserver(this)
+    translation.showTranslation(activity.getString(R.string.translation_pip_loading),playback?.currentAyah)
+    if (Build.VERSION.SDK_INT >= 26 && activity.isInPictureInPictureMode) showOverlay()
     preferences.registerOnSharedPreferenceChangeListener(preferenceListener)
     activity.lifecycleScope.launch {
       activity.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -68,15 +71,20 @@ class TranslationPipController(private val activity: ComponentActivity) : Defaul
     }
     contentReady = false
     loadingJob = activity.lifecycleScope.launch {
-      val value = try { app.pipTranslations.load(current.currentAyah) }
+      val value = try { app.pipTranslations.loadContent(current.currentAyah) }
         catch (cancelled: CancellationException) { throw cancelled }
-        catch (exception: Exception) { Timber.w(exception, "PiP translation unavailable"); activity.getString(R.string.translation_pip_unavailable) }
-      translation.showTranslation(value?.takeIf { it.isNotBlank() } ?: activity.getString(R.string.translation_pip_no_translation))
+        catch (exception: Exception) {
+          Timber.w(exception, "PiP translation unavailable")
+          PipTranslationRepository.Translation(activity.getString(R.string.translation_pip_unavailable),null)
+        }
+      translation.showTranslation(value?.text?.takeIf { it.isNotBlank() } ?: activity.getString(R.string.translation_pip_no_translation),
+        current.currentAyah,value?.languageCode)
       contentReady = true
       updateParams(current.playbackStatus == PlaybackStatus.PLAYING && !internalNavigation)
     }
   }
 
+  @androidx.annotation.RequiresApi(26)
   private fun params(autoEnter: Boolean): PictureInPictureParams {
     val builder = PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9))
     if (Build.VERSION.SDK_INT >= 31) builder.setAutoEnterEnabled(autoEnter).setSeamlessResizeEnabled(false)
@@ -89,7 +97,7 @@ class TranslationPipController(private val activity: ComponentActivity) : Defaul
   }
   fun internalNavigation() { internalNavigation = true; updateParams(false) }
   fun onUserLeave() {
-    if (Build.VERSION.SDK_INT in 26..30 && enabled && contentReady && !internalNavigation &&
+    if (Build.VERSION.SDK_INT >= 26 && Build.VERSION.SDK_INT <= 30 && enabled && contentReady && !internalNavigation &&
       playback?.playbackStatus == PlaybackStatus.PLAYING) {
       try { if (activity.enterPictureInPictureMode(params(false))) showOverlay() }
       catch (exception: RuntimeException) { Timber.w(exception, "PiP permission unavailable") }
@@ -111,7 +119,11 @@ class TranslationPipController(private val activity: ComponentActivity) : Defaul
     previousVisibility.forEach { (view, visibility) -> view.visibility = visibility }
     previousVisibility.clear()
   }
-  override fun onResume(owner: LifecycleOwner) { internalNavigation = false; refresh() }
+  override fun onResume(owner: LifecycleOwner) {
+    if (Build.VERSION.SDK_INT < 26 || !activity.isInPictureInPictureMode) hideOverlay()
+    internalNavigation = false
+    refresh()
+  }
   override fun onDestroy(owner: LifecycleOwner) {
     loadingJob?.cancel()
     preferences.unregisterOnSharedPreferenceChangeListener(preferenceListener)

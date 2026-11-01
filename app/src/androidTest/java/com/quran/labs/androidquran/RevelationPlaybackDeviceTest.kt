@@ -278,6 +278,10 @@ class RevelationPlaybackDeviceTest {
     app.applicationComponent.inject(provider)
     val preferences = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
     val savedTranslations = preferences.getStringSet(com.quran.labs.androidquran.data.Constants.PREF_ACTIVE_TRANSLATIONS,emptySet())
+    val savedAppearance = com.quran.labs.androidquran.pip.PipAppearance(context)
+    val wasCentered=savedAppearance.centered
+    val savedSize=savedAppearance.preferredSizeSp
+    fun priorityText(ayah: Int) = "Priority translation for ayah $ayah. " + "Complete text must remain visible in this small window. ".repeat(55)
     val names = listOf("pip-device-secondary.db","pip-device-primary.db")
     val directory = provider.quranFileUtils.getQuranDatabaseDirectory().apply { mkdirs() }
     try {
@@ -290,7 +294,7 @@ class RevelationPlaybackDeviceTest {
           db.execSQL("CREATE TABLE properties (property TEXT,value TEXT)")
           db.execSQL("INSERT INTO properties VALUES ('schema_version','5')")
           for (ayah in 1..19) db.execSQL("INSERT INTO verses VALUES (?,?,?,?)",arrayOf<Any>(ayah,96,ayah,
-            if (index==1) "Priority translation for ayah $ayah." else "Secondary translation for ayah $ayah."))
+            if (index==1) priorityText(ayah) else "Secondary translation for ayah $ayah."))
         }
         com.quran.labs.androidquran.dao.translation.TranslationItem(
           com.quran.labs.androidquran.dao.translation.Translation(990001+index,1,1,"PiP test $index","translation",name,"","","en"),1,1-index)
@@ -298,7 +302,8 @@ class RevelationPlaybackDeviceTest {
       runBlocking { assertTrue(provider.translationsDBAdapter.writeTranslationUpdates(items)) }
       preferences.edit().putStringSet(com.quran.labs.androidquran.data.Constants.PREF_ACTIVE_TRANSLATIONS,names.toSet())
         .putBoolean(com.quran.labs.androidquran.pip.TranslationPipController.PREFERENCE,true).commit()
-      runBlocking { assertEquals("Priority translation for ayah 1.",app.pipTranslations.load(SuraAyah(96,1))) }
+      runBlocking { assertEquals(priorityText(1),app.pipTranslations.load(SuraAyah(96,1))) }
+      savedAppearance.save(false,48)
       action(AudioService.ACTION_PLAYBACK,request(0).copy(start=SuraAyah(96,1),playbackSpeed=1f))
       awaitPlaying(probe,96)
       ActivityScenario.launch(QuranActivity::class.java).use { picker ->
@@ -320,7 +325,9 @@ class RevelationPlaybackDeviceTest {
             val text = visible.singleOrNull() as? com.quran.labs.androidquran.pip.FittingTranslationView
             pipDescription = "Visible=${visible.map { it.javaClass.simpleName }}, text=${text?.text}, size=${text?.width}x${text?.height}, layout=${text?.layout?.height}, padding=${text?.compoundPaddingTop}/${text?.compoundPaddingBottom}"
             correct = text?.text?.startsWith("Priority translation for ayah ")==true && text.layout!=null &&
-              text.layout.height<=text.height-text.compoundPaddingTop-text.compoundPaddingBottom
+              text.layout.height<=text.height-text.compoundPaddingTop-text.compoundPaddingBottom &&
+              text.layout.getLineEnd(text.layout.lineCount-1)==text.text.length &&
+              text.verseReference.startsWith("96:")
           }
           correct
         } } catch (failure: AssertionError) { throw AssertionError(pipDescription,failure) }
@@ -332,7 +339,20 @@ class RevelationPlaybackDeviceTest {
             val text=(0 until content.childCount).map { content.getChildAt(it) }
               .filterIsInstance<com.quran.labs.androidquran.pip.FittingTranslationView>().single()
             val ayah=(probe.audioStatusRepository.audioPlaybackFlow.value as AudioStatus.Playback).currentAyah.ayah
-            correct=text.text.toString()=="Priority translation for ayah $ayah."
+            correct=text.text.toString()==priorityText(ayah) && text.verseReference=="96:$ayah"
+          }
+          correct
+        }
+        savedAppearance.save(true,14)
+        waitUntil("Changing PiP alignment and preferred size must keep the full ayah and reference") {
+          var correct=false
+          instrumentation.runOnMainSync {
+            val content=host.findViewById<android.view.ViewGroup>(android.R.id.content)
+            val text=(0 until content.childCount).map { content.getChildAt(it) }
+              .filterIsInstance<com.quran.labs.androidquran.pip.FittingTranslationView>().single()
+            correct=(text.gravity and android.view.Gravity.CENTER_HORIZONTAL)!=0 && text.layout!=null &&
+              text.layout.height<=text.height-text.compoundPaddingTop-text.compoundPaddingBottom &&
+              text.layout.getLineEnd(text.layout.lineCount-1)==text.text.length && text.verseReference.startsWith("96:")
           }
           correct
         }
@@ -341,6 +361,7 @@ class RevelationPlaybackDeviceTest {
         assertEquals(PlaybackStatus.PLAYING,(probe.audioStatusRepository.audioPlaybackFlow.value as AudioStatus.Playback).playbackStatus)
       }
     } finally {
+      savedAppearance.save(wasCentered,savedSize)
       preferences.edit().putBoolean(com.quran.labs.androidquran.pip.TranslationPipController.PREFERENCE,false)
         .putStringSet(com.quran.labs.androidquran.data.Constants.PREF_ACTIVE_TRANSLATIONS,savedTranslations).commit()
       runBlocking { names.forEach { provider.translationsDBAdapter.deleteTranslationByFileName(it) } }
@@ -489,7 +510,9 @@ class RevelationPlaybackDeviceTest {
     awaitPlaying(probe,96)
     action(AudioService.ACTION_PAUSE)
     val paused = awaitPaused(probe)
-    shell("input keyevent KEYCODE_HOME")
+    // Input injection can return before Android actually starts Home. A real
+    // reopen must happen after Home, rather than being overtaken by its launch.
+    shell("am start -W -a android.intent.action.MAIN -c android.intent.category.HOME")
     context.startActivity(Intent(context,QuranActivity::class.java)
       .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
     val activity = reader()
@@ -558,7 +581,7 @@ class RevelationPlaybackDeviceTest {
           (list.layoutManager as androidx.recyclerview.widget.LinearLayoutManager).scrollToPositionWithOffset(34,-12)
         }
         instrumentation.waitForIdleSync()
-        shell("input keyevent KEYCODE_HOME")
+        shell("am start -W -a android.intent.action.MAIN -c android.intent.category.HOME")
         context.startActivity(Intent(context,QuranActivity::class.java)
           .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
         instrumentation.waitForIdleSync()

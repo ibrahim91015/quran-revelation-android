@@ -1,4 +1,13 @@
 <resources>
+  <string name="pip_appearance_title">Translation PiP appearance</string>
+  <string name="pip_appearance_summary">%1$s · %2$d sp maximum · always fits the full ayah</string>
+  <string name="pip_centered">Centered</string>
+  <string name="pip_justified">Justified</string>
+  <string name="pip_text_size">Preferred text size</string>
+  <string name="pip_text_size_sp">%1$d sp</string>
+  <string name="pip_maximum_text_size">Maximum text size: %1$d sp</string>
+  <string name="pip_appearance_explanation">Text always shrinks to fit the entire translation, including very long ayahs. The corner shows surah:ayah. App colors, dark mode and translation fonts are used automatically.</string>
+  <string name="pip_reset">Reset</string>
   <string name="sajdah_pause_title">Pause after sajdah</string>
   <string name="sajdah_pause_off">Off</string>
   <string name="sajdah_pause_seconds">%1$d seconds</string>

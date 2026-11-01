@@ -28,13 +28,15 @@ class PipTranslationRepository @Inject constructor(
   private val files: QuranFileUtils,
   private val mapper: AyahMapper
 ) {
-  suspend fun load(ayah: SuraAyah): String? = withContext(Dispatchers.IO) {
+  data class Translation(val text: String, val languageCode: String?)
+  suspend fun load(ayah: SuraAyah): String? = loadContent(ayah)?.text
+  suspend fun loadContent(ayah: SuraAyah): Translation? = withContext(Dispatchers.IO) {
     val selected = firstTranslation(translations.getTranslations().first(), settings.activeTranslations)
       ?: return@withContext null
     val range = VerseRange(ayah.sura, ayah.ayah, ayah.sura, ayah.ayah, 1)
     val handler = DatabaseHandler.getDatabaseHandler(context, selected.filename, files)
     val texts = mapper.mapKufiData(range, handler.getVerses(mapper.mapRange(range), DatabaseHandler.TextType.TRANSLATION))
-    texts.firstOrNull()?.let(::plainText)
+    texts.firstOrNull()?.let { Translation(plainText(it), selected.languageCode) }
   }
 
   companion object {

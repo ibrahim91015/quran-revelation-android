@@ -1,4 +1,13 @@
 <resources>
+  <string name="pip_appearance_title">مظهر نافذة الترجمة</string>
+  <string name="pip_appearance_summary">%1$s · الحد الأقصى %2$d sp · تلائم الآية كاملة دائمًا</string>
+  <string name="pip_centered">توسيط</string>
+  <string name="pip_justified">ضبط</string>
+  <string name="pip_text_size">حجم النص المفضّل</string>
+  <string name="pip_text_size_sp">%1$d sp</string>
+  <string name="pip_maximum_text_size">الحد الأقصى لحجم النص: %1$d sp</string>
+  <string name="pip_appearance_explanation">يصغر النص دائمًا لعرض الترجمة كاملة، حتى للآيات الطويلة جدًا. يظهر رقم السورة والآية في الزاوية. تُستخدم ألوان التطبيق والوضع الداكن وخطوط الترجمة تلقائيًا.</string>
+  <string name="pip_reset">إعادة الضبط</string>
   <string name="sajdah_pause_title">التوقف بعد السجدة</string>
   <string name="sajdah_pause_off">إيقاف</string>
   <string name="sajdah_pause_seconds">%1$d ثانية</string>
