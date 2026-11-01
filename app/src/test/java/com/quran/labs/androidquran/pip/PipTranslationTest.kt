@@ -20,6 +20,42 @@ import android.os.Looper
 @Config(application = Application::class, sdk = [33])
 @RunWith(RobolectricTestRunner::class)
 class PipTranslationTest {
+  @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+  fun everyMarginAndCornerFitsLongTextAndFullReferenceWithoutOverlappingTheLabel() {
+    Robolectric.buildActivity(Activity::class.java).setup().use { controller ->
+      val activity=controller.get()
+      activity.setTheme(R.style.QuranToolBarDayNight)
+      val appearance=PipAppearance(activity)
+      for (margin in listOf(0,4,8,16,24)) for (corner in PipCorner.entries) for (language in listOf("en","ar")) {
+        appearance.save(false,48,margin,true,corner)
+        val view=FittingTranslationView(activity)
+        val text=if (language=="en") "Every word of a long translation must fit, including the last line. ".repeat(60)
+          else "ترجمة طويلة مع الحركات لعرض الآية كاملة بما فيها السطر الأخير. ".repeat(60)
+        val label=if (language=="en") "Al-Baqarah (The Cow), Ayah 282" else "البقرة، الآية ٢٨٢"
+        view.showTranslation(text,SuraAyah(2,282),language,label)
+        repeat(3) {
+          view.forceLayout()
+          view.measure(View.MeasureSpec.makeMeasureSpec(320,View.MeasureSpec.EXACTLY),View.MeasureSpec.makeMeasureSpec(180,View.MeasureSpec.EXACTLY))
+          view.layout(0,0,320,180)
+        }
+        view.draw(android.graphics.Canvas(android.graphics.Bitmap.createBitmap(320,180,android.graphics.Bitmap.Config.ARGB_8888)))
+        assertThat(view.verseReference).isEqualTo(label)
+        assertThat(view.layout.getLineEnd(view.layout.lineCount-1)).isEqualTo(text.length)
+        assertThat(view.layout.height).isAtMost(180-view.compoundPaddingTop-view.compoundPaddingBottom)
+        assertThat(view.referenceBounds.left).isAtLeast(0f)
+        assertThat(view.referenceBounds.right).isAtMost(320f)
+        assertThat(view.referenceBounds.top).isAtLeast(0f)
+        assertThat(view.referenceBounds.bottom).isAtMost(180.001f)
+        if (corner.top) assertThat(view.referenceBounds.bottom).isAtMost(view.compoundPaddingTop.toFloat())
+        else assertThat(view.referenceBounds.top).isAtLeast((180-view.compoundPaddingBottom).toFloat())
+        if (margin==0) {
+          assertThat(view.includeFontPadding).isFalse()
+          assertThat(view.paddingLeft).isAtMost(0)
+          assertThat(view.gravity and android.view.Gravity.VERTICAL_GRAVITY_MASK).isEqualTo(android.view.Gravity.TOP)
+        } else assertThat(view.paddingLeft).isGreaterThan(0)
+      }
+    }
+  }
   @Test fun priorityMatchesTranslationModeAndFiltersActiveChoicesBeforeSelectingOne() {
     val translations = listOf(LocalTranslation(filename="third.db",displayOrder=8),
       LocalTranslation(filename="first.db",displayOrder=1),LocalTranslation(filename="second.db",displayOrder=2))

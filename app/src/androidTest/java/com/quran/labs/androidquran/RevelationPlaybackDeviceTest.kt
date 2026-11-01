@@ -206,10 +206,19 @@ class RevelationPlaybackDeviceTest {
       val channel = notifications.getNotificationChannel(com.quran.labs.androidquran.sajdah.SajdahAlerts.CHANNEL)
       assertEquals(NotificationManager.IMPORTANCE_HIGH,channel.importance)
       assertEquals(null,channel.sound)
-      assertTrue(!channel.shouldVibrate())
-      assertTrue(notifications.activeNotifications.any { it.id == com.quran.labs.androidquran.sajdah.SajdahAlerts.NOTIFICATION })
+      assertTrue(channel.shouldVibrate())
+      val pauseObserved=System.currentTimeMillis()
+      waitUntil("Completion alert must arrive at the start of the pause",750) {
+        notifications.activeNotifications.any { it.id == com.quran.labs.androidquran.sajdah.SajdahAlerts.NOTIFICATION &&
+          it.notification.extras.getString(Notification.EXTRA_TITLE)==context.getString(R.string.sajdah_notification_title) }
+      }
+      val alert=notifications.activeNotifications.single { it.id == com.quran.labs.androidquran.sajdah.SajdahAlerts.NOTIFICATION }
+      assertTrue(kotlin.math.abs(alert.postTime-pauseObserved)<1000)
+      waitUntil("The media chime must be audible while recitation is paused",750) { audio.isMusicActive }
+      val chimeObserved=SystemClock.elapsedRealtime()
       assertEquals(mediaVolume,audio.getStreamVolume(android.media.AudioManager.STREAM_MUSIC))
       awaitPlaying(probe,68)
+      assertTrue("The two-second pause starts with the chime, never before it",SystemClock.elapsedRealtime()-chimeObserved>=1700)
       assertTrue(notifications.activeNotifications.any { it.id == com.quran.labs.androidquran.sajdah.SajdahAlerts.NOTIFICATION })
       awaitPlaying(probe,68,2)
       waitUntil("Sajdah alert must clear after 68:1 completes") {
@@ -219,6 +228,31 @@ class RevelationPlaybackDeviceTest {
       audio.ringerMode = previousRinger
       instrumentation.uiAutomation.dropShellPermissionIdentity()
     }
+  }
+
+  @Test fun earlySajdahNotificationChangesFromPlayingToPlayedWithoutASecondVibration() = withForeground { probe ->
+    val preferences=androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+    preferences.edit().putBoolean(com.quran.labs.androidquran.sajdah.SajdahPreferences.NOTIFY_AT_START,true)
+      .putString(com.quran.labs.androidquran.sajdah.SajdahPause.MODE,"manual").commit()
+    val manager=context.getSystemService(NotificationManager::class.java)
+    fun alert()=manager.activeNotifications.firstOrNull { it.id==com.quran.labs.androidquran.sajdah.SajdahAlerts.NOTIFICATION }?.notification
+    try {
+      action(AudioService.ACTION_PLAYBACK,request(0).copy(playbackSpeed=1f))
+      awaitPlaying(probe,96)
+      waitUntil("Early notification should say is playing") {
+        alert()?.extras?.getString(Notification.EXTRA_TITLE)==context.getString(R.string.sajdah_notification_playing)
+      }
+      assertEquals(0,alert()!!.flags and Notification.FLAG_ONLY_ALERT_ONCE)
+      awaitPaused(probe)
+      waitUntil("Completion must update the same notification before resuming") {
+        alert()?.extras?.getString(Notification.EXTRA_TITLE)==context.getString(R.string.sajdah_notification_title)
+      }
+      assertTrue((alert()!!.flags and Notification.FLAG_ONLY_ALERT_ONCE)!=0)
+      action(AudioService.ACTION_PLAY)
+      awaitPlaying(probe,68,2)
+      waitUntil("Updated alert must still expire after the following ayah") { alert()==null }
+    } finally { preferences.edit().remove(com.quran.labs.androidquran.sajdah.SajdahPreferences.NOTIFY_AT_START)
+      .remove(com.quran.labs.androidquran.sajdah.SajdahPause.MODE).commit() }
   }
 
   @Test fun untilIResumeSajdahPauseWaitsAndDoesNotReplayOrSkipTheFollowingSurah() = withForeground { probe ->
@@ -281,6 +315,9 @@ class RevelationPlaybackDeviceTest {
     val savedAppearance = com.quran.labs.androidquran.pip.PipAppearance(context)
     val wasCentered=savedAppearance.centered
     val savedSize=savedAppearance.preferredSizeSp
+    val savedMargin=savedAppearance.marginDp
+    val savedFull=savedAppearance.fullReference
+    val savedCorner=savedAppearance.corner
     fun priorityText(ayah: Int) = ("Priority translation for ayah $ayah. " + "Complete text must remain visible in this small window. ".repeat(55)).trimEnd()
     val names = listOf("pip-device-secondary.db","pip-device-primary.db")
     val directory = provider.quranFileUtils.getQuranDatabaseDirectory().apply { mkdirs() }
@@ -303,7 +340,7 @@ class RevelationPlaybackDeviceTest {
       preferences.edit().putStringSet(com.quran.labs.androidquran.data.Constants.PREF_ACTIVE_TRANSLATIONS,names.toSet())
         .putBoolean(com.quran.labs.androidquran.pip.TranslationPipController.PREFERENCE,true).commit()
       runBlocking { assertEquals(priorityText(1),app.pipTranslations.load(SuraAyah(96,1))) }
-      savedAppearance.save(false,48)
+      savedAppearance.save(false,48,8,false,com.quran.labs.androidquran.pip.PipCorner.BOTTOM_RIGHT)
       action(AudioService.ACTION_PLAYBACK,request(0).copy(start=SuraAyah(96,1),playbackSpeed=1f))
       awaitPlaying(probe,96)
       ActivityScenario.launch(QuranActivity::class.java).use { picker ->
@@ -331,6 +368,15 @@ class RevelationPlaybackDeviceTest {
           }
           correct
         } } catch (failure: AssertionError) { throw AssertionError(pipDescription,failure) }
+        instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
+          File(context.cacheDir,"v005-pip-balanced.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+          bitmap.recycle()
+        }
+        instrumentation.runOnMainSync {
+          assertTrue(host.findViewById<android.view.ViewGroup>(android.R.id.content).keepScreenOn ||
+            host.findViewById<android.view.ViewGroup>(android.R.id.content).let { group ->
+              (0 until group.childCount).any { group.getChildAt(it).keepScreenOn } })
+        }
         awaitPlaying(probe,96,2)
         waitUntil("PiP should follow the next playing ayah") {
           var correct=false
@@ -343,7 +389,25 @@ class RevelationPlaybackDeviceTest {
           }
           correct
         }
-        savedAppearance.save(true,14)
+        savedAppearance.save(false,48,0,true,com.quran.labs.androidquran.pip.PipCorner.TOP_LEFT)
+        waitUntil("PiP live appearance must support edge crop and full notification-style reference") {
+          var correct=false
+          instrumentation.runOnMainSync {
+            val content=host.findViewById<android.view.ViewGroup>(android.R.id.content)
+            val text=(0 until content.childCount).map { content.getChildAt(it) }
+              .filterIsInstance<com.quran.labs.androidquran.pip.FittingTranslationView>().single()
+            val ayah=(probe.audioStatusRepository.audioPlaybackFlow.value as AudioStatus.Playback).currentAyah
+            correct=text.verseReference==app.pipTranslations.reference(ayah) && text.paddingLeft<0 &&
+              text.referenceBounds.left==0f && text.referenceBounds.top==0f && text.keepScreenOn &&
+              text.layout.getLineEnd(text.layout.lineCount-1)==text.text.length
+          }
+          correct
+        }
+        instrumentation.uiAutomation.takeScreenshot()?.let { bitmap ->
+          File(context.cacheDir,"v005-pip-edge-full-reference.png").outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it) }
+          bitmap.recycle()
+        }
+        savedAppearance.save(true,14,8,false,com.quran.labs.androidquran.pip.PipCorner.BOTTOM_RIGHT)
         waitUntil("Changing PiP alignment and preferred size must keep the full ayah and reference") {
           var correct=false
           instrumentation.runOnMainSync {
@@ -356,12 +420,25 @@ class RevelationPlaybackDeviceTest {
           }
           correct
         }
+        val timeout=android.provider.Settings.System.getInt(context.contentResolver,android.provider.Settings.System.SCREEN_OFF_TIMEOUT)
+        val plugged=android.provider.Settings.Global.getInt(context.contentResolver,android.provider.Settings.Global.STAY_ON_WHILE_PLUGGED_IN,0)
+        try {
+          shell("settings put global stay_on_while_plugged_in 0")
+          shell("settings put system screen_off_timeout 10000")
+          shell("input keyevent KEYCODE_WAKEUP")
+          SystemClock.sleep(12_000)
+          assertTrue("Visible PiP must keep the display awake past its screen timeout",
+            context.getSystemService(android.os.PowerManager::class.java).isInteractive)
+        } finally {
+          shell("settings put system screen_off_timeout $timeout")
+          shell("settings put global stay_on_while_plugged_in $plugged")
+        }
         instrumentation.runOnMainSync { host.finishAndRemoveTask() }
         SystemClock.sleep(750)
         assertEquals(PlaybackStatus.PLAYING,(probe.audioStatusRepository.audioPlaybackFlow.value as AudioStatus.Playback).playbackStatus)
       }
     } finally {
-      savedAppearance.save(wasCentered,savedSize)
+      savedAppearance.save(wasCentered,savedSize,savedMargin,savedFull,savedCorner)
       preferences.edit().putBoolean(com.quran.labs.androidquran.pip.TranslationPipController.PREFERENCE,false)
         .putStringSet(com.quran.labs.androidquran.data.Constants.PREF_ACTIVE_TRANSLATIONS,savedTranslations).commit()
       runBlocking { names.forEach { provider.translationsDBAdapter.deleteTranslationByFileName(it) } }

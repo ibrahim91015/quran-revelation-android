@@ -34,6 +34,45 @@ class SajdahSettingsTest {
     }
     return null
   }
+  private fun descendants(view: android.view.View): List<android.view.View> = listOf(view) +
+    if (view is ViewGroup) (0 until view.childCount).flatMap { descendants(view.getChildAt(it)) } else emptyList()
+
+  @Test fun extendedPipAppearanceSavesMarginsFullReferenceAndCornerAndResetRestoresDefaults() {
+    rule.scenario.onActivity { activity ->
+      val fragment=fragment(activity)
+      fragment.findPreference<androidx.preference.SwitchPreferenceCompat>(com.quran.labs.androidquran.pip.TranslationPipController.PREFERENCE)!!.apply {
+        isEnabled=true; isChecked=true
+      }
+      val preference=fragment.findPreference<Preference>(com.quran.labs.androidquran.pip.PipAppearance.SETTINGS)!!
+      val appearance=com.quran.labs.androidquran.pip.PipAppearance(activity)
+      preference.performClick()
+      shadowOf(Looper.getMainLooper()).idle()
+      val views=descendants(dialog().window!!.decorView)
+      assertThat(views.filterIsInstance<Slider>()).hasSize(2)
+      views.filterIsInstance<Slider>().last().value=0f
+      views.filterIsInstance<com.google.android.material.materialswitch.MaterialSwitch>().single().isChecked=true
+      views.filterIsInstance<com.google.android.material.textfield.MaterialAutoCompleteTextView>().last().apply {
+        onItemClickListener!!.onItemClick(null,null,0,0)
+      }
+      dialog().getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+      shadowOf(Looper.getMainLooper()).idle()
+      assertThat(appearance.marginDp).isEqualTo(0)
+      assertThat(appearance.fullReference).isTrue()
+      assertThat(appearance.corner).isEqualTo(com.quran.labs.androidquran.pip.PipCorner.TOP_LEFT)
+      preference.performClick()
+      shadowOf(Looper.getMainLooper()).idle()
+      dialog().getButton(AlertDialog.BUTTON_NEUTRAL).performClick()
+      dialog().getButton(AlertDialog.BUTTON_NEGATIVE).performClick()
+      assertThat(appearance.marginDp).isEqualTo(0)
+      preference.performClick()
+      shadowOf(Looper.getMainLooper()).idle()
+      dialog().getButton(AlertDialog.BUTTON_NEUTRAL).performClick()
+      dialog().getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+      assertThat(appearance.marginDp).isEqualTo(8)
+      assertThat(appearance.fullReference).isFalse()
+      assertThat(appearance.corner).isEqualTo(com.quran.labs.androidquran.pip.PipCorner.BOTTOM_RIGHT)
+    }
+  }
 
   @Test fun choosingASoundPreviewsSixOptionsAndCancelDoesNotPersistTheDraft() {
     rule.scenario.onActivity { activity ->

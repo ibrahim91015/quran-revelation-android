@@ -103,6 +103,7 @@ class AudioService : Service(), Player.Listener {
   private lateinit var sajdahAlerts: SajdahAlerts
   private var completedSajdahBeforePause: SuraAyah? = null
   private var sajdahResume: Runnable? = null
+  private var sajdahPauseGeneration = 0L
 
   // our exo player
   private var player: ExoPlayer? = null
@@ -810,6 +811,9 @@ class AudioService : Service(), Player.Listener {
   }
 
   private fun updateAudioPlaybackStatus() {
+    if (state == State.Playing && player?.isPlaying == true && !playerOverride) {
+      audioQueue?.getCurrentPlaybackAyah()?.let { sajdahAlerts.started(it, notificationPendingIntent) }
+    }
     val audioStatus = when (state) {
       State.Stopped -> AudioStatus.Stopped
       State.Playing, State.Preparing, State.Paused -> {
@@ -1159,6 +1163,7 @@ class AudioService : Service(), Player.Listener {
   }
 
   private fun cancelSajdahResume() {
+    sajdahPauseGeneration++
     sajdahResume?.let { serviceHandler.removeCallbacks(it) }
     sajdahResume = null
     audioStatusRepository.clearSajdahPause()
@@ -1170,16 +1175,29 @@ class AudioService : Service(), Player.Listener {
       completedSajdahBeforePause = null
       return false
     }
-    sajdahAlerts.completed(ayah, notificationPendingIntent)
-    if (!SajdahLocations.contains(ayah.sura, ayah.ayah)) return false
+    if (!SajdahLocations.contains(ayah.sura, ayah.ayah)) {
+      sajdahAlerts.completed(ayah, notificationPendingIntent)
+      return false
+    }
     val duration = SajdahPause.durationMillis(this)
-    if (duration == 0L) return false
+    if (duration == 0L) {
+      sajdahAlerts.completed(ayah, notificationPendingIntent)
+      return false
+    }
     completedSajdahBeforePause = ayah
     processPauseRequest(forSajdah = true)
-    if (duration != null) {
-      sajdahResume = Runnable {
-        if (state == State.Paused && audioStatusRepository.pausedForSajdah) processPlayRequest()
-      }.also { serviceHandler.postDelayed(it, duration) }
+    val generation = sajdahPauseGeneration
+    sajdahAlerts.completed(ayah, notificationPendingIntent) {
+      // Cold sample loading cannot consume the prostration interval. Explicit
+      // pause/browse/stop invalidates this callback just like a running timer.
+      serviceHandler.post {
+        if (generation == sajdahPauseGeneration && state == State.Paused &&
+            audioStatusRepository.pausedForSajdah && duration != null) {
+          sajdahResume = Runnable {
+            if (state == State.Paused && audioStatusRepository.pausedForSajdah) processPlayRequest()
+          }.also { serviceHandler.postDelayed(it, duration) }
+        }
+      }
     }
     return true
   }

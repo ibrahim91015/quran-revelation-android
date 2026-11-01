@@ -8,7 +8,7 @@ This is an independent, unofficial fork of [Quran for Android](https://github.co
 [![Latest release](https://img.shields.io/github/v/release/ibrahim91015/quran-revelation-android?display_name=tag&sort=date)](https://github.com/ibrahim91015/quran-revelation-android/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/ibrahim91015/quran-revelation-android/total)](https://github.com/ibrahim91015/quran-revelation-android/releases)
 
-**[Download the APK](https://github.com/ibrahim91015/quran-revelation-android/releases/latest)** · **[Release notes](docs/releases/v0.0.4.md)** · **[Roadmap and ideas](ROADMAP.md)** · **[Build and testing guide](REVELATION.md)**
+**[Download the APK](https://github.com/ibrahim91015/quran-revelation-android/releases/latest)** · **[Release notes](docs/releases/v0.0.5.md)** · **[Roadmap and ideas](ROADMAP.md)** · **[Build and testing guide](REVELATION.md)**
 
 ## What is different from the original?
 
@@ -34,9 +34,9 @@ The reciter catalog retains all **89 recitation entries** from the supplied offi
 2. Open the APK on your Android device and allow installation from that browser or file manager. On first launch, let the app download the required Quran pages.
 3. Open **Revelation**, select a surah and reciter, and press Play. Playback follows revelation order and stops after An-Nasr.
 
-The current release, **0.0.4**, targets **Android 16 / API 36**, with a minimum of **Android 7.0 / API 24**. Install it over an earlier fork release to keep this fork's data. Fork versions use **v0.0.x**, independently of the upstream **3.6.5** source base; the higher internal Android version code preserves upgrade compatibility. [Upstream commits reviewed and merged on 31 October](docs/upstream/2026-10-31.md).
+The current release, **0.0.5**, targets **Android 16 / API 36**, with a minimum of **Android 7.0 / API 24**. Install it over an earlier fork release to keep this fork's data. Fork versions use **v0.0.x**, independently of the upstream **3.6.5** source base; the higher internal Android version code preserves upgrade compatibility. [Upstream commits reviewed and merged on 31 October](docs/upstream/2026-10-31.md).
 
-Sajdah cues now offer six offline chimes, previews, a separate gain slider, and a silent high-priority visual alert. **Pause after sajdah** defaults to 2 seconds and supports Off, 5 seconds, Until I resume, or Custom 0–60 seconds. Optional **Translation picture-in-picture (Beta)** shows the playing ayah's first-priority translation on Home; closing it keeps audio playing. [Settings and behavior](docs/releases/v0.0.4.md).
+Sajdah cues now offer six offline chimes, previews, a separate gain slider, and a sound-free high-priority vibrating alert. **Pause after sajdah** defaults to 2 seconds and supports Off, 5 seconds, Until I resume, or Custom 0–60 seconds. Optional **Translation picture-in-picture (Beta)** shows the playing ayah's first-priority translation on Home; closing it keeps audio playing. PiP keeps the screen awake and offers adjustable margin presets, optional full surah labels, and all four reference corners. An optional early sajdah notification changes from “is playing” to “has played”; the chime starts with the pause. [Settings and behavior](docs/releases/v0.0.5.md).
 
 Reopening with a playing or paused recitation returns to its current ayah. Without audio, a warm return keeps your tab and scroll position; a fresh start uses your saved first tab. Tap a tab to go to its top, double-tap the recitation's originating tab to find its green row, or hold and drag tabs to change their order. [Audio handoff and navigation details](docs/releases/v0.0.3.md).
 
@@ -44,7 +44,7 @@ Downloaded audio is preferred. Revelation sessions stream missing files as neede
 
 ## Validation and current limits
 
-The [latest validation report](https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v0.0.4) covers new sajdah/PiP behavior together with playback, tab state and gestures, background/notification navigation, audio handoffs, and the existing touch/import/theme/coexistence checks.
+The [latest validation report](https://github.com/ibrahim91015/quran-revelation-android/releases/tag/v0.0.5) covers new sajdah/PiP behavior together with playback, tab state and gestures, background/notification navigation, audio handoffs, and the existing touch/import/theme/coexistence checks.
 
 The preceding **0.0.3** passed **606 Linux regression tests**, **10 Android 16 device tests**, **336 live endpoint checks**, and release lint with **zero errors**. Each release includes its own final results, checksums, and platform limitations.
 

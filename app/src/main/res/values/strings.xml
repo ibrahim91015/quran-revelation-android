@@ -443,7 +443,7 @@
   <string name="audio_playing_label">Now playing</string>
   <string-array name="accent_names"><item>Blue</item><item>Emerald</item><item>Violet</item><item>Amber</item></string-array>
   <string name="sajdah_cue_title">Sajdah sound and alert</string>
-  <string name="sajdah_cue_summary">Play your chime and show an alert after a sajdah ayah. Uses media volume, including in vibrate mode.</string>
+  <string name="sajdah_cue_summary">Play a media chime at the start of the sajdah pause and show a vibrating alert. Works in vibrate mode.</string>
   <string name="audio_order_revelation">Revelation order</string>
   <string name="audio_order_standard">Surah order</string>
   <string name="audio_notification_details">%1$s · %2$s</string>

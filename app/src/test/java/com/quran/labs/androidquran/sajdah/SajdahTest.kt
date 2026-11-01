@@ -62,9 +62,23 @@ class SajdahTest {
     val channel = context.getSystemService(NotificationManager::class.java).getNotificationChannel(SajdahAlerts.CHANNEL)
     assertThat(channel.importance).isEqualTo(NotificationManager.IMPORTANCE_HIGH)
     assertThat(channel.sound).isNull()
-    assertThat(channel.shouldVibrate()).isFalse()
+    assertThat(channel.shouldVibrate()).isTrue()
+    assertThat(channel.vibrationPattern).isEqualTo(SajdahAlerts.VIBRATION)
     val attributes = SajdahSoundPlayer.mediaAttributes()
     assertThat(attributes.usage).isEqualTo(AudioAttributes.USAGE_MEDIA)
     assertThat(attributes.contentType).isEqualTo(AudioAttributes.CONTENT_TYPE_MUSIC)
+  }
+  @Test fun earlyAlertIsOptInOnlyAnnouncesOnceAndStillExpiresAfterNextCompletion() {
+    assertThat(SajdahPreferences(context).notifyAtStart).isFalse()
+    val state=SajdahAlertState()
+    assertThat(state.started(SuraAyah(96,19),false)).isFalse()
+    state.clear()
+    assertThat(state.started(SuraAyah(96,19),true)).isTrue()
+    assertThat(state.started(SuraAyah(96,19),true)).isFalse()
+    assertThat(state.completed(SuraAyah(96,19))).isEqualTo(SajdahAlertState.Change.SHOW)
+    assertThat(state.started(SuraAyah(96,19),true)).isFalse()
+    assertThat(state.started(SuraAyah(68,1),true)).isFalse()
+    assertThat(state.completed(SuraAyah(68,1))).isEqualTo(SajdahAlertState.Change.CLEAR)
+    assertThat(state.started(SuraAyah(32,15),true)).isTrue()
   }
 }

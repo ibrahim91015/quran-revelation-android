@@ -34,6 +34,13 @@ class SajdahSettings(private val fragment: QuranSettingsFragment) : AutoCloseabl
       setDefaultValue(true)
       isIconSpaceReserved = false
     })
+    group.addPreference(SwitchPreferenceCompat(context).apply {
+      key = SajdahPreferences.NOTIFY_AT_START
+      title = context.getString(R.string.sajdah_notify_start_title)
+      summary = context.getString(R.string.sajdah_notify_start_summary)
+      setDefaultValue(false)
+      isIconSpaceReserved = false
+    })
     soundPreference = Preference(context).apply {
       key = SajdahPreferences.SOUND
       title = context.getString(R.string.sajdah_sound_title)

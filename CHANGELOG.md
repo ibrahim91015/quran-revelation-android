@@ -2,6 +2,17 @@
 
 This file tracks changes specific to **Quran Revelation for Android**. The original application’s development history is available in [upstream Quran for Android](https://github.com/quran/quran_android).
 
+## [0.0.5] — 2026-11-01
+
+- Start the sajdah chime and completion alert at the beginning of the pause; start timed resume after the sample starts, including cold loading.
+- Add vibration to the high-importance, sound-free alert channel and an opt-in early “is playing” notification that changes to “has played” without repeating the vibration.
+- Keep the display awake while translation PiP is visible; dismissal still leaves audio running.
+- Add PiP comfort presets, custom 0–24 dp margins and intentional half-character edge crop in No margins mode.
+- Add optional full notification-style surah/ayah labels and all four reference corners, with a protected row and live settings updates.
+- Extend Android 16 playback tests and native-font English/Arabic fit tests for these options.
+
+See the [release notes](docs/releases/v0.0.5.md).
+
 ## [0.0.4] — 2026-10-31
 
 - Replace the short sajdah beep with six original offline chimes, previews, a saved sound choice, and independent media-relative gain.

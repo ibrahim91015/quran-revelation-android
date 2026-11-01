@@ -36,7 +36,7 @@ class TranslationPipController(private val activity: ComponentActivity) : Defaul
   private var contentReady = false
   private var loadingJob: kotlinx.coroutines.Job? = null
   private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-    if (key == PREFERENCE || key == PipAppearance.ALIGNMENT || key == PipAppearance.TEXT_SIZE) activity.runOnUiThread { refresh() }
+    if (key == PREFERENCE || key in PipAppearance.KEYS) activity.runOnUiThread { refresh() }
   }
   @get:androidx.annotation.ChecksSdkIntAtLeast(api = 26)
   private val supported get() = Build.VERSION.SDK_INT >= 26 && activity.packageManager
@@ -78,7 +78,7 @@ class TranslationPipController(private val activity: ComponentActivity) : Defaul
           PipTranslationRepository.Translation(activity.getString(R.string.translation_pip_unavailable),null)
         }
       translation.showTranslation(value?.text?.takeIf { it.isNotBlank() } ?: activity.getString(R.string.translation_pip_no_translation),
-        current.currentAyah,value?.languageCode)
+        current.currentAyah,value?.languageCode,app.pipTranslations.reference(current.currentAyah))
       contentReady = true
       updateParams(current.playbackStatus == PlaybackStatus.PLAYING && !internalNavigation)
     }
@@ -106,6 +106,7 @@ class TranslationPipController(private val activity: ComponentActivity) : Defaul
   fun transitioningToPip() { if (enabled) showOverlay() }
   fun modeChanged(inPip: Boolean) { if (inPip) showOverlay() else hideOverlay() }
   private fun showOverlay() {
+    translation.keepScreenOn = true
     if (translation.visibility == View.VISIBLE) return
     for (i in 0 until content.childCount) {
       val view = content.getChildAt(i)
@@ -115,6 +116,7 @@ class TranslationPipController(private val activity: ComponentActivity) : Defaul
     translation.bringToFront()
   }
   private fun hideOverlay() {
+    translation.keepScreenOn = false
     translation.visibility = View.GONE
     previousVisibility.forEach { (view, visibility) -> view.visibility = visibility }
     previousVisibility.clear()

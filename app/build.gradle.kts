@@ -37,8 +37,8 @@ android {
 
   defaultConfig {
     // Independent release sequence above the legacy 3651002 upgrade floor.
-    versionCode = 4_000_004
-    versionName = "0.0.4"
+    versionCode = 4_000_005
+    versionName = "0.0.5"
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 

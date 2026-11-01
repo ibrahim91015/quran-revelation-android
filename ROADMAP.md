@@ -2,7 +2,7 @@
 
 These are proposed improvements for **Quran Revelation for Android**. They are a starting point for discussion, with no promised delivery dates. The current release is documented in [CHANGELOG.md](CHANGELOG.md) and the [release notes](docs/releases/v0.0.4.md).
 
-Version 0.0.4 adds six configurable sajdah chimes, gain/preview controls, visual alerts, configurable pauses, and beta translation PiP. Next checks include physical listening, long/RTL translation layouts, PiP resize/dismiss gestures, and device-specific notification restrictions.
+Version 0.0.5 adds start/completion sajdah notifications with vibration, a chime-aligned pause timer, PiP screen wake, reading-comfort margins, full surah labels and corner selection. Native tests cover long Latin/Arabic text and the Android screen timeout; the user confirmed physical PiP works well in v0.0.4. Next checks include physical chime/vibration perception, PiP gestures on more devices, and vendor notification/power restrictions.
 
 Version 0.0.3 adds independent tab positions, tab reordering/gestures, source-specific playback markers, background return to the playing ayah, and protected handoffs when browsing during recitation. Fork version numbers are now independent of upstream.
 

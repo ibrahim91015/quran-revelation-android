@@ -26,8 +26,10 @@ class PipTranslationRepository @Inject constructor(
   private val settings: QuranSettings,
   private val translations: TranslationsDBAdapter,
   private val files: QuranFileUtils,
-  private val mapper: AyahMapper
+  private val mapper: AyahMapper,
+  private val displayData: com.quran.labs.androidquran.data.QuranDisplayData
 ) {
+  fun reference(ayah: SuraAyah): String = displayData.getSuraAyahString(context, ayah.sura, ayah.ayah)
   data class Translation(val text: String, val languageCode: String?)
   suspend fun load(ayah: SuraAyah): String? = loadContent(ayah)?.text
   suspend fun loadContent(ayah: SuraAyah): Translation? = withContext(Dispatchers.IO) {

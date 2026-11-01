@@ -20,6 +20,7 @@ enum class SajdahSound(val key: String, val label: Int, val resource: Int) {
 class SajdahPreferences(context: Context) {
   val preferences = PreferenceManager.getDefaultSharedPreferences(context)
   val enabled get() = preferences.getBoolean(ENABLED, true)
+  val notifyAtStart get() = preferences.getBoolean(NOTIFY_AT_START, false)
   var sound: SajdahSound
     get() = SajdahSound.fromKey(preferences.getString(SOUND, null))
     set(value) { preferences.edit().putString(SOUND, value.key).apply() }
@@ -31,5 +32,6 @@ class SajdahPreferences(context: Context) {
     const val ENABLED = "revelation_sajdah_cue"
     const val SOUND = "revelation_sajdah_sound"
     const val VOLUME = "revelation_sajdah_volume"
+    const val NOTIFY_AT_START = "revelation_sajdah_notify_at_start"
   }
 }
