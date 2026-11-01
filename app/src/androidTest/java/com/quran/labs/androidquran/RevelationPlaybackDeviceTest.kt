@@ -281,7 +281,7 @@ class RevelationPlaybackDeviceTest {
     val savedAppearance = com.quran.labs.androidquran.pip.PipAppearance(context)
     val wasCentered=savedAppearance.centered
     val savedSize=savedAppearance.preferredSizeSp
-    fun priorityText(ayah: Int) = "Priority translation for ayah $ayah. " + "Complete text must remain visible in this small window. ".repeat(55)
+    fun priorityText(ayah: Int) = ("Priority translation for ayah $ayah. " + "Complete text must remain visible in this small window. ".repeat(55)).trimEnd()
     val names = listOf("pip-device-secondary.db","pip-device-primary.db")
     val directory = provider.quranFileUtils.getQuranDatabaseDirectory().apply { mkdirs() }
     try {
