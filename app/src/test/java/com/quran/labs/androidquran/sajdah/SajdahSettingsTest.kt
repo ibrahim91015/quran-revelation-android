@@ -68,6 +68,7 @@ class SajdahSettingsTest {
       shadowOf(Looper.getMainLooper()).idle()
       dialog().getButton(AlertDialog.BUTTON_NEUTRAL).performClick()
       dialog().getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+      shadowOf(Looper.getMainLooper()).idle()
       assertThat(appearance.marginDp).isEqualTo(8)
       assertThat(appearance.fullReference).isFalse()
       assertThat(appearance.corner).isEqualTo(com.quran.labs.androidquran.pip.PipCorner.BOTTOM_RIGHT)
